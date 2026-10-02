@@ -52,19 +52,14 @@ public partial class MainWindow : Window
         _facade = new Facade(fixtureCount: 5, pixelsPerFixture: 2);
         scene.RootNode.Add(_facade.RootNode);
 
-        // The building wall behind the fixtures (vertical, facing the camera).
-        var wall = new PlaneModelNode(
-            centerPosition: new Vector3(0, 0, -10),
-            size: new Vector2(1000, 400),
-            normal: new Vector3(0, 0, 1),
-            heightDirection: new Vector3(0, 1, 0),
-            name: "Wall"
-        )
-        {
-            Material = StandardMaterials.DimGray,
-            BackMaterial = StandardMaterials.Black,
-        };
-        scene.RootNode.Add(wall);
+        // The building wall behind the fixtures (vertical, facing the camera)
+        var box = new BoxModelNode(
+            centerPosition: new Vector3(0, -100, -150),
+            size: new Vector3(900, 900, 50),
+            material: StandardMaterials.Gray,
+            name: "las vegas"
+        );
+        scene.RootNode.Add(box);
     }
 
     private void CreateCamera()
@@ -93,14 +88,34 @@ public partial class MainWindow : Window
     private void CreateLight()
     {
         var scene = MainSceneView.Scene;
-
         scene.Lights.Clear();
-
         // These lights only affect the wall and the fixture housings.
         // The pixels are drawn with a solid color and ignore them.
         scene.SetAmbientLight(0.25f);
 
-        // A lamp above and in front of the wall
-        scene.Lights.Add(new PointLight(position: new Vector3(200, 300, 600)));
+        var warmLight = new PointLight(position: new Vector3(-175, 0, 0), range: 250f);
+        warmLight.Color = new Color3(1f, .6f, .2f);
+        scene.RootNode.Add(
+            new SphereModelNode(
+                warmLight.Position,
+                radius: 10f,
+                material: new SolidColorMaterial(warmLight.Color),
+                name: "warmLightMarker"
+            )
+        );
+
+        var coldLight = new PointLight(new Vector3(175, 0, 0), 250f);
+        coldLight.Color = new Color3(.2f, .4f, 1f);
+        scene.RootNode.Add(
+            new SphereModelNode(
+                centerPosition: coldLight.Position,
+                radius: 10f,
+                material: new SolidColorMaterial(coldLight.Color),
+                name: "coldLightMarker"
+            )
+        );
+
+        scene.Lights.Add(warmLight);
+        scene.Lights.Add(coldLight);
     }
 }
