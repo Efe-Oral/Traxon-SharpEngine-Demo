@@ -49,14 +49,25 @@ public partial class MainWindow : Window
     {
         var scene = MainSceneView.Scene;
 
-        // Stage 1: tiny on purpose, 5 fixtures x 2 pixels = 10 pixels.
-        _facade = new Facade(fixtureCount: 5, pixelsPerFixture: 2);
+        // change these two to benchmark, or pass them when running:
+        // e.g.: dotnet run -- 500 6 (500 fixtures with 6 pixels each inside)
+        int fixtureCount = 50000;
+        int pixelsPerFixture = 100;
+
+        var args = Environment.GetCommandLineArgs();
+        if (args.Length >= 3)
+        {
+            fixtureCount = int.Parse(args[1]);
+            pixelsPerFixture = int.Parse(args[2]);
+        }
+
+        _facade = new Facade(fixtureCount, pixelsPerFixture);
         scene.RootNode.Add(_facade.RootNode);
 
         // The building wall behind the fixtures (vertical, facing the camera)
         var box = new BoxModelNode(
-            centerPosition: new Vector3(0, -100, -150),
-            size: new Vector3(900, 900, 50),
+            centerPosition: new Vector3(0, 0, -30),
+            size: new Vector3(_facade.Size.X + 200, _facade.Size.Y + 200, 50),
             material: StandardMaterials.Gray,
             name: "las vegas"
         );
@@ -70,7 +81,7 @@ public partial class MainWindow : Window
             TargetPosition = new Vector3(0, 0, 0), // center of the fixture row
             Heading = 20, // left/right orbit
             Attitude = -10, // up/down tilt
-            Distance = 1100, // how far away
+            Distance = Math.Max(1100, _facade!.Size.X * 1.2f), // far enough to see the whole grid
             ShowCameraLight = ShowCameraLightType.Never, // we use our own point light
         };
 

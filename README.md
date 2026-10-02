@@ -47,9 +47,13 @@ This is an assumption on my side, and something I'd like to discuss.
 Measured on my laptop: RTX 2060 6GB, Intel Core i7-10750H 2.60GHz, 144 Hz screen.
 
 
-| Fixtures | Pixels | Avg frame time | FPS |
-| -------- | ------ | -------------- | --- |
-| 5        | 10     | 2.43 ms        | 144 |
+| Fixtures | Pixels per fixture| Pixels   | Avg frame time | FPS   |
+| -------- | ----------------- | ---------| -------------- |-------|
+| 5        | 2                 | 10       | 2.43 ms        | 144   |
+| 500      | 4                 | 2,000    | 2.43 ms        | 144   |
+| 5,000    | 8                 | 40,000   | 2,49 ms        | 144   |
+| 20,000   | 100               | 2,000,000| 4,69 ms        | 144   |
+| 50,000   | 100               | 5,000,000| 9,65 ms        | 100,93|
 
 
 FPS can't go above 144 because of the screen, so frame time is the number to watch as the

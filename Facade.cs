@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Ab4d.SharpEngine.Common;
 using Ab4d.SharpEngine.Meshes;
 using Ab4d.SharpEngine.SceneNodes;
@@ -12,8 +12,8 @@ public class Facade
     private const float FixtureHeight = 20;
     private const float FixtureDepth = 5;
     private const float FixtureSpacing = 150;
+    private const float RowSpacing = 60;
 
-    private const float PixelWidth = 30;
     private const float PixelHeight = 12;
 
     private readonly List<Fixture> _fixtures = new();
@@ -25,6 +25,9 @@ public class Facade
     public IReadOnlyList<Fixture> Fixtures => _fixtures;
     public int PixelCount => _pixelInstances.Length;
 
+    // width and height of the whole grid
+    public Vector2 Size { get; private set; }
+
     public GroupNode RootNode { get; } = new GroupNode("Facade");
 
     public Facade(int fixtureCount, int pixelsPerFixture)
@@ -34,16 +37,28 @@ public class Facade
         CreateSceneNodes();
     }
 
-    // a single row, centered on x = 0
+    // a grid, centered on 0,0. filled left to right, top to bottom
     private void CreateFixtures(int fixtureCount, int pixelsPerFixture)
     {
-        float rowWidth = (fixtureCount - 1) * FixtureSpacing;
+        int columns = (int)Math.Ceiling(Math.Sqrt(fixtureCount));
+        int rows = (int)Math.Ceiling((double)fixtureCount / columns);
+
+        float gridWidth = (columns - 1) * FixtureSpacing;
+        float gridHeight = (rows - 1) * RowSpacing;
+        Size = new Vector2(gridWidth + FixtureWidth, gridHeight + FixtureHeight);
 
         // one fixture = unique id + position + first pixel's index + how many pixel it has
         // e.g.: fixture 0 owns pixels 0 and 1, fixture 1 ownes pixels 2 and 3...
         for (int i = 0; i < fixtureCount; i++)
         {
-            var position = new Vector3(i * FixtureSpacing - rowWidth / 2, 0, 0);
+            int column = i % columns;
+            int row = i / columns;
+
+            var position = new Vector3(
+                column * FixtureSpacing - gridWidth / 2,
+                gridHeight / 2 - row * RowSpacing,
+                0
+            );
             _fixtures.Add(
                 new Fixture(
                     Id: i,
@@ -67,7 +82,6 @@ public class Facade
 
         // meshes are 1x1, so the scale is the real size
         var housingScale = Matrix4x4.CreateScale(FixtureWidth, FixtureHeight, FixtureDepth);
-        var pixelScale = Matrix4x4.CreateScale(PixelWidth, PixelHeight, 1);
 
         foreach (var fixture in _fixtures)
         {
@@ -77,7 +91,9 @@ public class Facade
                 housingColor
             );
 
+            // each pixel gets an equal slot and fills 60% of it
             float slotWidth = FixtureWidth / fixture.PixelCount;
+            var pixelScale = Matrix4x4.CreateScale(slotWidth * 0.6f, PixelHeight, 1);
 
             for (int p = 0; p < fixture.PixelCount; p++)
             {
