@@ -26,6 +26,7 @@ public partial class MainWindow : Window
 {
     private TargetPositionCamera? _camera;
     private PointerCameraController? _cameraController;
+    private Facade? _facade;
 
     public MainWindow()
     {
@@ -47,37 +48,33 @@ public partial class MainWindow : Window
     {
         var scene = MainSceneView.Scene;
 
-        var plane = new PlaneModelNode(
-            centerPosition: new Vector3(0, 0, 0),
-            size: new Vector2(400, 400),
-            normal: new Vector3(0, 1, 0), // facing up
-            heightDirection: new Vector3(0, 0, -1),
-            name: "Floor"
+        // Stage 1: tiny on purpose, 5 fixtures x 2 pixels = 10 pixels.
+        _facade = new Facade(fixtureCount: 5, pixelsPerFixture: 2);
+        scene.RootNode.Add(_facade.RootNode);
+
+        // The building wall behind the fixtures (vertical, facing the camera).
+        var wall = new PlaneModelNode(
+            centerPosition: new Vector3(0, 0, -10),
+            size: new Vector2(1000, 400),
+            normal: new Vector3(0, 0, 1),
+            heightDirection: new Vector3(0, 1, 0),
+            name: "Wall"
         )
         {
-            Material = StandardMaterials.Gray,
+            Material = StandardMaterials.DimGray,
             BackMaterial = StandardMaterials.Black,
         };
-        scene.RootNode.Add(plane);
-
-        float radius = 30;
-        var sphere = new SphereModelNode("Ball")
-        {
-            CenterPosition = new Vector3(0, radius, 0), // sits on the floor
-            Radius = radius,
-            Material = StandardMaterials.Orange,
-        };
-        scene.RootNode.Add(sphere);
+        scene.RootNode.Add(wall);
     }
 
     private void CreateCamera()
     {
         _camera = new TargetPositionCamera()
         {
-            TargetPosition = new Vector3(0, 20, 0), // look near the sphere
-            Heading = -40, // left/right orbit
-            Attitude = -25, // up/down tilt
-            Distance = 400, // how far away
+            TargetPosition = new Vector3(0, 0, 0), // center of the fixture row
+            Heading = 20, // left/right orbit
+            Attitude = -10, // up/down tilt
+            Distance = 1100, // how far away
             ShowCameraLight = ShowCameraLightType.Never, // we use our own point light
         };
 
@@ -99,10 +96,11 @@ public partial class MainWindow : Window
 
         scene.Lights.Clear();
 
-        // Soft fill so the dark side of the sphere is not pure black
+        // These lights only affect the wall and the fixture housings.
+        // The pixels are drawn with a solid color and ignore them.
         scene.SetAmbientLight(0.25f);
 
-        // A lamp above and in front of the sphere
-        scene.Lights.Add(new PointLight(position: new Vector3(80, 120, 100)));
+        // A lamp above and in front of the wall
+        scene.Lights.Add(new PointLight(position: new Vector3(200, 300, 600)));
     }
 }

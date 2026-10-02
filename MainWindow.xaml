@@ -6,9 +6,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:SharpEngine"
         mc:Ignorable="d"
-        Title="Demo Scene" Height="700" Width="1000">
+        Title="Facade Lighting Demo" Height="700" Width="1000">
     <Grid>
         <sharpEngine:SharpEngineSceneView x:Name="MainSceneView"
-                                          BackgroundColor="Gray" />
+                                          BackgroundColor="#101014" />
     </Grid>
 </Window>
