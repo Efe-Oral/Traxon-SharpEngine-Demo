@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "q+r4beF8jbs=",
+  "success": true,
+  "projectFilePath": "d:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\efeor\\.nuget\\packages\\ab4d.sharpengine\\4.1.9689\\ab4d.sharpengine.4.1.9689.nupkg.sha512",
+    "C:\\Users\\efeor\\.nuget\\packages\\ab4d.sharpengine.wpf\\4.1.9689\\ab4d.sharpengine.wpf.4.1.9689.nupkg.sha512"
+  ],
+  "logs": []
+}
