@@ -39,10 +39,19 @@ public class Facade
     {
         float rowWidth = (fixtureCount - 1) * FixtureSpacing;
 
+        // one fixture = unique id + position + first pixel's index + how many pixel it has
+        // e.g.: fixture 0 owns pixels 0 and 1, fixture 1 ownes pixels 2 and 3...
         for (int i = 0; i < fixtureCount; i++)
         {
             var position = new Vector3(i * FixtureSpacing - rowWidth / 2, 0, 0);
-            _fixtures.Add(new Fixture(i, position, FirstPixelIndex: i * pixelsPerFixture, pixelsPerFixture));
+            _fixtures.Add(
+                new Fixture(
+                    Id: i,
+                    Position: position,
+                    FirstPixelIndex: i * pixelsPerFixture,
+                    PixelCount: pixelsPerFixture
+                )
+            );
         }
     }
 
@@ -74,11 +83,13 @@ public class Facade
                 int pixelIndex = fixture.FirstPixelIndex + p;
 
                 // slightly in front of the housing, otherwise they flicker
-                var pixelPosition = fixture.Position + new Vector3(
-                    x: -FixtureWidth / 2 + slotWidth * (p + 0.5f),
-                    y: 0,
-                    z: FixtureDepth / 2 + 0.5f
-                );
+                var pixelPosition =
+                    fixture.Position
+                    + new Vector3(
+                        x: -FixtureWidth / 2 + slotWidth * (p + 0.5f),
+                        y: 0,
+                        z: FixtureDepth / 2 + 0.5f
+                    );
 
                 // rainbow, so every pixel is a different color
                 float hue = 360f * pixelIndex / totalPixels;
@@ -115,10 +126,7 @@ public class Facade
         housingsNode.SetInstancesData(_housingInstances);
 
         // solid color = no shading, so the pixels look like they glow
-        var pixelsNode = new InstancedMeshNode(quadMesh, "Pixels")
-        {
-            IsSolidColorMaterial = true,
-        };
+        var pixelsNode = new InstancedMeshNode(quadMesh, "Pixels") { IsSolidColorMaterial = true };
         pixelsNode.SetInstancesData(_pixelInstances);
 
         RootNode.Add(housingsNode);
