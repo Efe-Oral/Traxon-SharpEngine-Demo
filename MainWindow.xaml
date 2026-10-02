@@ -10,5 +10,9 @@
     <Grid>
         <sharpEngine:SharpEngineSceneView x:Name="MainSceneView"
                                           BackgroundColor="#101014" />
+
+        <TextBlock x:Name="StatsText"
+                   HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10"
+                   Foreground="White" FontFamily="Consolas" FontSize="14" />
     </Grid>
 </Window>

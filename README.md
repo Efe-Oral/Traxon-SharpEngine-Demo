@@ -42,15 +42,31 @@ pixels can be faked cheaply later.
 
 This is an assumption on my side, and something I'd like to discuss.
 
+## Performance
+
+Measured on my laptop: RTX 2060 6GB, Intel Core i7-10750H 2.60GHz, 144 Hz screen.
+
+
+| Fixtures | Pixels | Avg frame time | FPS |
+| -------- | ------ | -------------- | --- |
+| 5        | 10     | 2.43 ms        | 144 |
+
+
+FPS can't go above 144 because of the screen, so frame time is the number to watch as the
+fixture count grows.
+
 ## Progress
 
 **Stage 1 (done):** 5 fixtures, 2 pixels each, nothing moving. The whole facade is 2 scene nodes:
 one for the fixture housings and one for the pixels.
 
+**Stats overlay (done):** fixture count, frame time and FPS in the top left corner. Added before
+scaling up, so I can see what each change costs.
+
 Next up:
 
 - more fixtures (50, 500, thousands)
-- FPS and frame time on screen
 - animated colors
 - click a fixture to select it
 - add fixtures at runtime
+

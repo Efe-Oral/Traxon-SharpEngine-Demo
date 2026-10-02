@@ -41,6 +41,7 @@ public partial class MainWindow : Window
         CreateScene();
         CreateCamera();
         CreateLight();
+        CreateStatsOverlay();
         Closed += (_, _) => MainSceneView.Dispose();
     }
 
@@ -117,5 +118,42 @@ public partial class MainWindow : Window
 
         scene.Lights.Add(warmLight);
         scene.Lights.Add(coldLight);
+    }
+
+    private void CreateStatsOverlay()
+    {
+        MainSceneView.SceneView.IsCollectingStatistics = true;
+
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        int frameCount = 0;
+        double frameTimeSum = 0;
+
+        // runs after every drawn frame. SceneRendered is an event (kinda like obeserver pattern in Unity)
+        MainSceneView.SceneRendered += (_, _) =>
+        {
+            var stats = MainSceneView.SceneView.Statistics;
+            if (stats == null || _facade == null)
+                return;
+
+            frameCount++;
+            frameTimeSum += stats.UpdateTimeMs + stats.TotalRenderTimeMs;
+
+            // update the text once per second with the averages
+            double seconds = timer.Elapsed.TotalSeconds;
+            if (seconds < 1)
+                return;
+
+            StatsText.Text =
+                $"{_facade.Fixtures.Count} fixtures, {_facade.PixelCount} pixels\n"
+                + $"avg frame time: {frameTimeSum / frameCount:0.00} ms\n"
+                + $"fps: {frameCount / seconds:0}";
+
+            frameCount = 0;
+            frameTimeSum = 0;
+            timer.Restart();
+        };
+
+        // keep the camera turning so the engine keeps drawing frames
+        _camera?.StartRotation(headingChangeInSecond: 20);
     }
 }
