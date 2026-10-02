@@ -22,3 +22,4 @@ D:\Cursor Projects\SharpEngine\obj\Debug\net10.0-windows\refint\SharpEngine.dll
 D:\Cursor Projects\SharpEngine\obj\Debug\net10.0-windows\SharpEngine.pdb
 D:\Cursor Projects\SharpEngine\obj\Debug\net10.0-windows\SharpEngine.genruntimeconfig.cache
 D:\Cursor Projects\SharpEngine\obj\Debug\net10.0-windows\ref\SharpEngine.dll
+d:\Cursor Projects\SharpEngine\obj\Debug\net10.0-windows\SharpEngine.sourcelink.json

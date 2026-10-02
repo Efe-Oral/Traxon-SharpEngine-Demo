@@ -99,11 +99,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj",
+      "projectUniqueName": "d:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj",
       "projectName": "SharpEngine",
-      "projectPath": "D:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj",
+      "projectPath": "d:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj",
       "packagesPath": "C:\\Users\\efeor\\.nuget\\packages\\",
-      "outputPath": "D:\\Cursor Projects\\SharpEngine\\obj\\",
+      "outputPath": "d:\\Cursor Projects\\SharpEngine\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\efeor\\AppData\\Roaming\\NuGet\\NuGet.Config"
