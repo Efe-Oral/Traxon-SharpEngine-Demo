@@ -30,6 +30,18 @@ Pixels are flat quads instead of spheres because a quad is only 2 triangles, and
 a light looks like a flat dot anyway. They are drawn in a solid color with no shading, so they
 look like they glow.
 
+## Real light vs fake light
+
+The pixels don't actually light anything up. They are colored quads, and the wall next to a red
+pixel doesn't turn red.
+
+I thought about making them real lights, but no engine can calculate millions of light sources in
+real time. And for a preview it isn't needed: if I control the color of every pixel, I'm already
+showing what the facade will look like. If it needs to feel more like light, a glow around the
+pixels can be faked cheaply later.
+
+This is an assumption on my side, and something I'd like to discuss.
+
 ## Progress
 
 **Stage 1 (done):** 5 fixtures, 2 pixels each, nothing moving. The whole facade is 2 scene nodes:
