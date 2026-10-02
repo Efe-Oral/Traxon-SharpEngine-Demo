@@ -23,10 +23,10 @@
             "request": "attach"
         },
         {
-            "name": "Launch ProjectName",
+            "name": "Launch SharpEngine (Dev Tools)",
             "type": "devtools",
             "request": "launch",
-            "projectPath": "${workspaceFolder}/src/MyProject/MyProject.csproj",
+            "projectPath": "${workspaceFolder}/SharpEngine.csproj",
             "withDebug": true
         }
     ]

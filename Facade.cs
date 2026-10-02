@@ -55,6 +55,7 @@ public class Facade
         }
     }
 
+    // creatşon of a single pixel
     private void CreateInstanceData()
     {
         int totalPixels = _fixtures.Sum(f => f.PixelCount);
@@ -62,7 +63,7 @@ public class Facade
         _housingInstances = new WorldColorInstanceData[_fixtures.Count];
         _pixelInstances = new WorldColorInstanceData[totalPixels];
 
-        var housingColor = new Color4(0.12f, 0.12f, 0.13f, 1);
+        var housingColor = new Color4(0.12f, 0.12f, 0.13f, 1); //gray color for fxture sockets
 
         // meshes are 1x1, so the scale is the real size
         var housingScale = Matrix4x4.CreateScale(FixtureWidth, FixtureHeight, FixtureDepth);
