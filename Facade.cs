@@ -91,7 +91,7 @@ public class Facade
                 housingColor
             );
 
-            // each pixel gets an equal slot and fills 60% of it
+            // each pixel gets an equal slot and fills 60% of it to leave gaps between pixels
             float slotWidth = FixtureWidth / fixture.PixelCount;
             var pixelScale = Matrix4x4.CreateScale(slotWidth * 0.6f, PixelHeight, 1);
 
@@ -121,13 +121,14 @@ public class Facade
 
     private void CreateSceneNodes()
     {
+        // housing boxes
         var boxMesh = MeshFactory.CreateBoxMesh(
             centerPosition: Vector3.Zero,
             size: new Vector3(1, 1, 1),
             name: "UnitBoxMesh"
         );
 
-        // flat quad facing the camera
+        // flat quad facing the camera (pixels). This quad is drawn for every entry in the pixel list
         var quadMesh = MeshFactory.CreatePlaneMesh(
             centerPosition: Vector3.Zero,
             planeNormal: new Vector3(0, 0, 1),

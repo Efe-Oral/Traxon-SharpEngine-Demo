@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private TargetPositionCamera? _camera;
     private PointerCameraController? _cameraController;
     private Facade? _facade;
+    private bool isCameraRotating = true;
 
     public MainWindow()
     {
@@ -42,6 +43,7 @@ public partial class MainWindow : Window
         CreateCamera();
         CreateLight();
         CreateStatsOverlay();
+        KeyDown += OnKeyDown;
         Closed += (_, _) => MainSceneView.Dispose();
     }
 
@@ -52,7 +54,7 @@ public partial class MainWindow : Window
         // change these two to benchmark, or pass them when running:
         // e.g.: dotnet run -- 500 6 (500 fixtures with 6 pixels each inside)
         int fixtureCount = 50000;
-        int pixelsPerFixture = 100;
+        int pixelsPerFixture = 50;
 
         var args = Environment.GetCommandLineArgs();
         if (args.Length >= 3)
@@ -166,5 +168,19 @@ public partial class MainWindow : Window
 
         // keep the camera turning so the engine keeps drawing frames
         _camera?.StartRotation(headingChangeInSecond: 20);
+    }
+
+    // space = start / stop the camera rotation
+    private void OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Space || _camera == null)
+            return;
+
+        isCameraRotating = !isCameraRotating;
+
+        if (isCameraRotating)
+            _camera.StartRotation(headingChangeInSecond: 20);
+        else
+            _camera.StopRotation();
     }
 }
