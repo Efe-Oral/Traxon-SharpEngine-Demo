@@ -29,6 +29,7 @@ public class Facade
     public Vector2 Size { get; private set; }
 
     public GroupNode RootNode { get; } = new GroupNode("Facade");
+    private InstancedMeshNode? _pixelsNode;
 
     public Facade(int fixtureCount, int pixelsPerFixture)
     {
@@ -111,7 +112,7 @@ public class Facade
                 // rainbow, so every pixel is a different color
                 float hue = 360f * pixelIndex / totalPixels;
 
-                _pixelInstances[pixelIndex] = new WorldColorInstanceData(
+                _pixelInstances[pixelIndex] = new(
                     pixelScale * Matrix4x4.CreateTranslation(pixelPosition),
                     Color4.FromHsv(hue, 1, 1, 1)
                 );
@@ -144,10 +145,30 @@ public class Facade
         housingsNode.SetInstancesData(_housingInstances);
 
         // solid color = no shading, so the pixels look like they glow
-        var pixelsNode = new InstancedMeshNode(quadMesh, "Pixels") { IsSolidColorMaterial = true };
-        pixelsNode.SetInstancesData(_pixelInstances);
+        _pixelsNode = new InstancedMeshNode(quadMesh, "Pixels") { IsSolidColorMaterial = true };
+        _pixelsNode.SetInstancesData(_pixelInstances);
 
         RootNode.Add(housingsNode);
-        RootNode.Add(pixelsNode);
+        RootNode.Add(_pixelsNode);
+    }
+
+    // called every frame. a bright band sweeps through the pixels, one sweep every 4 seconds
+    public void UpdateColors(float seconds)
+    {
+        float wipe = seconds / 4 % 1; // goes 0 -> 1, then starts again
+
+        for (int i = 0; i < _pixelInstances.Length; i++)
+        {
+            float along = (float)i / _pixelInstances.Length; // 0 = first pixel, 1 = last
+
+            // full brightness at the band, fading out around it
+            float distance = Math.Abs(along - wipe);
+            float brightness = Math.Max(0.05f, 1 - distance * 8);
+
+            _pixelInstances[i].DiffuseColor = new Color4(brightness, brightness * 0.5f, 0, 1);
+        }
+
+        // the array changed, send it to the graphics card again
+        _pixelsNode?.UpdateInstancesData(updateBoundingBox: false);
     }
 }

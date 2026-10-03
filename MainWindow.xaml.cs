@@ -43,6 +43,7 @@ public partial class MainWindow : Window
         CreateCamera();
         CreateLight();
         CreateStatsOverlay();
+        StartAnimation();
         KeyDown += OnKeyDown;
         Closed += (_, _) => MainSceneView.Dispose();
     }
@@ -53,7 +54,7 @@ public partial class MainWindow : Window
 
         // change these two to benchmark, or pass them when running:
         // e.g.: dotnet run -- 500 6 (500 fixtures with 6 pixels each inside)
-        int fixtureCount = 50000;
+        int fixtureCount = 1000;
         int pixelsPerFixture = 50;
 
         var args = Environment.GetCommandLineArgs();
@@ -168,6 +169,15 @@ public partial class MainWindow : Window
 
         // keep the camera turning so the engine keeps drawing frames
         _camera?.StartRotation(headingChangeInSecond: 20);
+    }
+
+    private void StartAnimation()
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        // runs before every frame, like Update() in Unity
+        MainSceneView.SceneView.SceneUpdating += (_, _) =>
+            _facade?.UpdateColors((float)clock.Elapsed.TotalSeconds);
     }
 
     // space = start / stop the camera rotation
