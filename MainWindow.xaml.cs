@@ -54,8 +54,8 @@ public partial class MainWindow : Window
 
         // change these two to benchmark, or pass them when running:
         // e.g.: dotnet run -- 500 6 (500 fixtures with 6 pixels each inside)
-        int fixtureCount = 1000;
-        int pixelsPerFixture = 50;
+        int fixtureCount = 6;
+        int pixelsPerFixture = 1;
 
         var args = Environment.GetCommandLineArgs();
         if (args.Length >= 3)

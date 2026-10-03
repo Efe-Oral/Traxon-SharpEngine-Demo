@@ -22,6 +22,9 @@ public class Facade
     private WorldColorInstanceData[] _housingInstances = Array.Empty<WorldColorInstanceData>();
     private WorldColorInstanceData[] _pixelInstances = Array.Empty<WorldColorInstanceData>();
 
+    // where each pixel sits on the facade, from 0 to 1. x: 0 = left edge, 1 = right edge. y: 0 = bottom, 1 = top
+    private Vector2[] _pixelFacadePositions = Array.Empty<Vector2>();
+
     public IReadOnlyList<Fixture> Fixtures => _fixtures;
     public int PixelCount => _pixelInstances.Length;
 
@@ -78,6 +81,7 @@ public class Facade
 
         _housingInstances = new WorldColorInstanceData[_fixtures.Count];
         _pixelInstances = new WorldColorInstanceData[totalPixels];
+        _pixelFacadePositions = new Vector2[totalPixels];
 
         var housingColor = new Color4(0.12f, 0.12f, 0.13f, 1); //gray color for fxture sockets
 
@@ -116,6 +120,12 @@ public class Facade
                     pixelScale * Matrix4x4.CreateTranslation(pixelPosition),
                     Color4.FromHsv(hue, 1, 1, 1)
                 );
+
+                // the facade is centered on 0,0, so shift by half the size, then divide by the size
+                _pixelFacadePositions[pixelIndex] = new Vector2(
+                    (pixelPosition.X + Size.X / 2) / Size.X,
+                    (pixelPosition.Y + Size.Y / 2) / Size.Y
+                );
             }
         }
     }
@@ -152,14 +162,14 @@ public class Facade
         RootNode.Add(_pixelsNode);
     }
 
-    // called every frame. a bright band sweeps through the pixels, one sweep every 4 seconds
+    // called every frame. a bright band sweeps across the facade from left to right, one sweep every 4 seconds
     public void UpdateColors(float seconds)
     {
         float wipe = seconds / 4 % 1; // goes 0 -> 1, then starts again
 
         for (int i = 0; i < _pixelInstances.Length; i++)
         {
-            float along = (float)i / _pixelInstances.Length; // 0 = first pixel, 1 = last
+            float along = _pixelFacadePositions[i].X; // 0 = left edge of the facade, 1 = right edge
 
             // full brightness at the band, fading out around it
             float distance = Math.Abs(along - wipe);
