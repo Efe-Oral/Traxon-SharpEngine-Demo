@@ -162,20 +162,12 @@ public class Facade
         RootNode.Add(_pixelsNode);
     }
 
-    // called every frame. a bright band sweeps across the facade from left to right, one sweep every 4 seconds
-    public void UpdateColors(float seconds)
+    // called every frame. asks the effect for the color of every pixel
+    public void UpdateColors(IEffect effect, float seconds)
     {
-        float wipe = seconds / 4 % 1; // goes 0 -> 1, then starts again
-
         for (int i = 0; i < _pixelInstances.Length; i++)
         {
-            float along = _pixelFacadePositions[i].X; // 0 = left edge of the facade, 1 = right edge
-
-            // full brightness at the band, fading out around it
-            float distance = Math.Abs(along - wipe);
-            float brightness = Math.Max(0.05f, 1 - distance * 8);
-
-            _pixelInstances[i].DiffuseColor = new Color4(brightness, brightness * 0.5f, 0, 1);
+            _pixelInstances[i].DiffuseColor = effect.GetColor(_pixelFacadePositions[i], seconds);
         }
 
         // the array changed, send it to the graphics card again

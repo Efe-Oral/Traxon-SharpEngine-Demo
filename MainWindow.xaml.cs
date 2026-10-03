@@ -29,6 +29,10 @@ public partial class MainWindow : Window
     private Facade? _facade;
     private bool isCameraRotating = true;
 
+    // E switches to the next one
+    private readonly IEffect[] _effects = { new WipeEffect(), new RainbowEffect() };
+    private int _currentEffect = 0;
+
     public MainWindow()
     {
         // Ab4d.SharpEngine Trial License can be used for testing the Ab4d.SharpEngine and is valid until November 30, 2026.
@@ -54,8 +58,8 @@ public partial class MainWindow : Window
 
         // change these two to benchmark, or pass them when running:
         // e.g.: dotnet run -- 500 6 (500 fixtures with 6 pixels each inside)
-        int fixtureCount = 6;
-        int pixelsPerFixture = 1;
+        int fixtureCount = 600;
+        int pixelsPerFixture = 20;
 
         var args = Environment.GetCommandLineArgs();
         if (args.Length >= 3)
@@ -160,7 +164,8 @@ public partial class MainWindow : Window
             StatsText.Text =
                 $"{_facade.Fixtures.Count} fixtures, {_facade.PixelCount} pixels\n"
                 + $"avg frame time: {frameTimeSum / frameCount:0.00} ms\n"
-                + $"fps: {frameCount / seconds:0}";
+                + $"fps: {frameCount / seconds:0}\n"
+                + $"effect: {_effects[_currentEffect].Name} (E to change)";
 
             frameCount = 0;
             frameTimeSum = 0;
@@ -177,20 +182,26 @@ public partial class MainWindow : Window
 
         // runs before every frame, like Update() in Unity
         MainSceneView.SceneView.SceneUpdating += (_, _) =>
-            _facade?.UpdateColors((float)clock.Elapsed.TotalSeconds);
+            _facade?.UpdateColors(_effects[_currentEffect], (float)clock.Elapsed.TotalSeconds);
     }
 
-    // space = start / stop the camera rotation
+    // space = start / stop the camera rotation, E = next effect
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Space || _camera == null)
-            return;
+        if (e.Key == Key.Space && _camera != null)
+        {
+            isCameraRotating = !isCameraRotating;
 
-        isCameraRotating = !isCameraRotating;
+            if (isCameraRotating)
+                _camera.StartRotation(headingChangeInSecond: 20);
+            else
+                _camera.StopRotation();
+        }
 
-        if (isCameraRotating)
-            _camera.StartRotation(headingChangeInSecond: 20);
-        else
-            _camera.StopRotation();
+        if (e.Key == Key.E)
+        {
+            // after the last one, go back to the first
+            _currentEffect = (_currentEffect + 1) % _effects.Length;
+        }
     }
 }
