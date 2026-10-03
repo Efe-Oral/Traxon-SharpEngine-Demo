@@ -37,6 +37,10 @@ public partial class MainWindow : Window
     private float _speed = 1; // 0 = frozen, 1 = normal, 2 = twice as fast
     private float _brightness = 1; // 0 = off, 1 = full
 
+    // how long our own color update takes. the engine's frame time doesn't include it
+    private double _updateTimeSum;
+    private int _updateCount;
+
     public MainWindow()
     {
         // Ab4d.SharpEngine Trial License can be used for testing the Ab4d.SharpEngine and is valid until November 30, 2026.
@@ -169,12 +173,15 @@ public partial class MainWindow : Window
                 $"{_facade.Fixtures.Count} fixtures, {_facade.PixelCount} pixels\n"
                 + $"avg frame time: {frameTimeSum / frameCount:0.00} ms\n"
                 + $"fps: {frameCount / seconds:0}\n"
+                + $"avg color update: {_updateTimeSum / Math.Max(1, _updateCount):0.00} ms\n"
                 + $"effect: {_effects[_currentEffect].Name} (E to change)\n"
                 + $"speed: {_speed:0.00}x (left / right)\n"
                 + $"brightness: {_brightness * 100:0}% (up / down)";
 
             frameCount = 0;
             frameTimeSum = 0;
+            _updateTimeSum = 0;
+            _updateCount = 0;
             timer.Restart();
         };
 
@@ -197,7 +204,10 @@ public partial class MainWindow : Window
             effectTime += (float)(now - lastTime) * _speed;
             lastTime = now;
 
+            var updateTimer = System.Diagnostics.Stopwatch.StartNew();
             _facade?.UpdateColors(_effects[_currentEffect], effectTime, _brightness);
+            _updateTimeSum += updateTimer.Elapsed.TotalMilliseconds;
+            _updateCount++;
         };
     }
 

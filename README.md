@@ -59,6 +59,30 @@ Measured on my laptop: RTX 2060 6GB, Intel Core i7-10750H 2.60GHz, 144 Hz screen
 FPS can't go above 144 because of the screen, so frame time is the number to watch as the
 fixture count grows.
 
+### With animated colors
+
+Every frame each pixel asks the current effect for its color, and the whole pixel array is sent
+to the graphics card again. "Color update" is the time that takes. The engine's frame time
+doesn't include it, so I measure it separately.
+
+| Fixtures | Pixels    | Effect  | Color update | Avg frame time | FPS |
+| -------- | --------- | ------- | ------------ | -------------- | --- |
+| 5        | 10        | Wipe    | 0.02 ms      | 2.25 ms        | 144 |
+| 500      | 2,000     | Wipe    | 0.08 ms      | 2.52 ms        | 140 |
+| 5,000    | 40,000    | Wipe    | 2.02 ms      | 1.11 ms        | 144 |
+| 20,000   | 2,000,000 | Wipe    | 60.2 ms      | 7.48 ms        | 14  |
+| 50,000   | 5,000,000 | Wipe    | 204.6 ms     | 14.74 ms       | 5   |
+| 20,000   | 2,000,000 | Rainbow | 91.4 ms      | 11.58 ms       | 9   |
+| 50,000   | 5,000,000 | Rainbow | 247.9 ms     | 18.64 ms       | 4   |
+
+Drawing 5 million pixels is fine (about 100 FPS static), but changing them every frame isn't.
+Up to 40,000 pixels animation is basically free. At millions of pixels the color update takes
+far longer than the drawing itself, and FPS drops to single digits.
+
+This is the simple version on purpose: one C# loop over every pixel, then re-sending the whole
+array, including positions that never change. Each pixel entry is 80 bytes but only 16 of them
+are the color. Next step is finding out which part is slow and fixing that.
+
 ## Progress
 
 **Stage 1 (done):** 5 fixtures, 2 pixels each, nothing moving. The whole facade is 2 scene nodes:
@@ -67,10 +91,19 @@ one for the fixture housings and one for the pixels.
 **Stats overlay (done):** fixture count, frame time and FPS in the top left corner. Added before
 scaling up, so I can see what each change costs.
 
+**Scaling (done):** fixtures are laid out in a grid, and the counts can be passed on the command
+line: `dotnet run -c Release -- 50000 100` (fixtures, pixels per fixture).
+
+**Effects (done):** pixel colors come from an effect. An effect only answers "what color is the
+pixel at this spot on the facade, at this time?", where the spot goes from 0 to 1 across the
+facade. That way the same effect works on any facade size, and video can plug in the same way
+later. Two effects so far, Wipe and Rainbow.
+
+Keys: `E` next effect, left / right speed, up / down brightness, space camera rotation.
+
 Next up:
 
-- more fixtures (50, 500, thousands)
-- animated colors
+- make the color update fast enough for millions of pixels
 - click a fixture to select it
 - add fixtures at runtime
 
