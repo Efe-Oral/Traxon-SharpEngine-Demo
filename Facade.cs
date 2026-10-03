@@ -162,12 +162,19 @@ public class Facade
         RootNode.Add(_pixelsNode);
     }
 
-    // called every frame. asks the effect for the color of every pixel
-    public void UpdateColors(IEffect effect, float seconds)
+    // called every frame. asks the effect for the color of every pixel, then dims it by the brightness (0 - 1)
+    public void UpdateColors(IEffect effect, float seconds, float brightness)
     {
         for (int i = 0; i < _pixelInstances.Length; i++)
         {
-            _pixelInstances[i].DiffuseColor = effect.GetColor(_pixelFacadePositions[i], seconds);
+            var color = effect.GetColor(_pixelFacadePositions[i], seconds);
+
+            _pixelInstances[i].DiffuseColor = new Color4(
+                color.Red * brightness,
+                color.Green * brightness,
+                color.Blue * brightness,
+                1
+            );
         }
 
         // the array changed, send it to the graphics card again

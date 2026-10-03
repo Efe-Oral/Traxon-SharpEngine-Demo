@@ -33,6 +33,10 @@ public partial class MainWindow : Window
     private readonly IEffect[] _effects = { new WipeEffect(), new RainbowEffect() };
     private int _currentEffect = 0;
 
+    // live controls. left / right = speed, up / down = brightness
+    private float _speed = 1; // 0 = frozen, 1 = normal, 2 = twice as fast
+    private float _brightness = 1; // 0 = off, 1 = full
+
     public MainWindow()
     {
         // Ab4d.SharpEngine Trial License can be used for testing the Ab4d.SharpEngine and is valid until November 30, 2026.
@@ -165,7 +169,9 @@ public partial class MainWindow : Window
                 $"{_facade.Fixtures.Count} fixtures, {_facade.PixelCount} pixels\n"
                 + $"avg frame time: {frameTimeSum / frameCount:0.00} ms\n"
                 + $"fps: {frameCount / seconds:0}\n"
-                + $"effect: {_effects[_currentEffect].Name} (E to change)";
+                + $"effect: {_effects[_currentEffect].Name} (E to change)\n"
+                + $"speed: {_speed:0.00}x (left / right)\n"
+                + $"brightness: {_brightness * 100:0}% (up / down)";
 
             frameCount = 0;
             frameTimeSum = 0;
@@ -179,10 +185,20 @@ public partial class MainWindow : Window
     private void StartAnimation()
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
+        double lastTime = 0;
+        float effectTime = 0;
 
         // runs before every frame, like Update() in Unity
         MainSceneView.SceneView.SceneUpdating += (_, _) =>
-            _facade?.UpdateColors(_effects[_currentEffect], (float)clock.Elapsed.TotalSeconds);
+        {
+            // the effect has its own clock. each frame it moves forward by the real time that passed, times the speed.
+            // so changing the speed doesn't make the effect jump
+            double now = clock.Elapsed.TotalSeconds;
+            effectTime += (float)(now - lastTime) * _speed;
+            lastTime = now;
+
+            _facade?.UpdateColors(_effects[_currentEffect], effectTime, _brightness);
+        };
     }
 
     // space = start / stop the camera rotation, E = next effect
@@ -203,5 +219,15 @@ public partial class MainWindow : Window
             // after the last one, go back to the first
             _currentEffect = (_currentEffect + 1) % _effects.Length;
         }
+
+        // Math.Clamp keeps the value inside min and max
+        if (e.Key == Key.Right)
+            _speed = Math.Clamp(_speed + 0.25f, 0, 4);
+        if (e.Key == Key.Left)
+            _speed = Math.Clamp(_speed - 0.25f, 0, 4);
+        if (e.Key == Key.Up)
+            _brightness = Math.Clamp(_brightness + 0.1f, 0, 1);
+        if (e.Key == Key.Down)
+            _brightness = Math.Clamp(_brightness - 0.1f, 0, 1);
     }
 }
