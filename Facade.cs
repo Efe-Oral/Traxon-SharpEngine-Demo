@@ -160,15 +160,9 @@ public class Facade
         RootNode.Add(_pixelsNode);
     }
 
-    // how long the last UpdateColors took, split in two parts (for the stats overlay)
-    public double LastColorLoopMs { get; private set; }
-    public double LastSendMs { get; private set; }
-
     // called every frame. asks the effect for the color of every pixel, then dims it by the brightness (0 - 1)
     public void UpdateColors(IEffect effect, float seconds, float brightness)
     {
-        var timer = System.Diagnostics.Stopwatch.StartNew();
-
         // same as a normal for loop, but the pixels are split between all cpu cores.
         // safe because every pixel only reads its own position and writes its own color
         Parallel.For(0, _pixelColors.Length, i =>
@@ -183,12 +177,7 @@ public class Facade
             );
         });
 
-        LastColorLoopMs = timer.Elapsed.TotalMilliseconds; //1st we measure the time it takes to calculate colors of each pixel
-        timer.Restart();
-
         // the colors changed, send only the color array to the graphics card again (positions stay there)
         _pixelsNode?.UpdatePixelColors(hasTransparentColors: false);
-
-        LastSendMs = timer.Elapsed.TotalMilliseconds; //2nd we measure the time it takes to send the color array to GPU
     }
 }

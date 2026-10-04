@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SharpEngine")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f9fb266c0b50304d54f910b7ae6b3f2a16d9f64c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5aaf5af4d4cf78f109f8b95768be4a114a689494")]
 [assembly: System.Reflection.AssemblyProductAttribute("SharpEngine")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SharpEngine")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

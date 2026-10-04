@@ -1,20 +1,11 @@
 ﻿using System.Numerics;
-using System.Text;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using Ab4d.SharpEngine.Cameras;
 using Ab4d.SharpEngine.Common;
 using Ab4d.SharpEngine.Lights;
 using Ab4d.SharpEngine.Materials;
 using Ab4d.SharpEngine.SceneNodes;
-using Ab4d.SharpEngine.Utilities;
 using Ab4d.SharpEngine.Wpf;
 
 namespace SharpEngine;
@@ -36,12 +27,6 @@ public partial class MainWindow : Window
     // live controls. left / right = speed, up / down = brightness
     private float _speed = 1; // 0 = frozen, 1 = normal, 2 = twice as fast
     private float _brightness = 1; // 0 = off, 1 = full
-
-    // how long our own color update takes. the engine's frame time doesn't include it
-    private double _updateTimeSum;
-    private double _loopTimeSum; // part 1: working out the colors
-    private double _sendTimeSum; // part 2: sending the array to the graphics card
-    private int _updateCount;
 
     public MainWindow()
     {
@@ -144,6 +129,13 @@ public partial class MainWindow : Window
             )
         );
 
+        scene.Lights.Add(
+            new DirectionalLight(new Vector3(-0.3f, -0.6f, -1f))
+            {
+                Color = new Color3(0.4f, 0.4f, 0.4f),
+            }
+        );
+
         scene.Lights.Add(warmLight);
         scene.Lights.Add(coldLight);
     }
@@ -175,25 +167,14 @@ public partial class MainWindow : Window
                 $"{_facade.Fixtures.Count} fixtures, {_facade.PixelCount} pixels\n"
                 + $"avg frame time: {frameTimeSum / frameCount:0.00} ms\n"
                 + $"fps: {frameCount / seconds:0}\n"
-                + $"avg color update: {_updateTimeSum / Math.Max(1, _updateCount):0.00} ms\n"
-                + $"  colors loop: {_loopTimeSum / Math.Max(1, _updateCount):0.00} ms\n"
-                + $"  send to GPU: {_sendTimeSum / Math.Max(1, _updateCount):0.00} ms\n"
-                + $"color updates per second: {_updateCount / seconds:0}\n"
                 + $"effect: {_effects[_currentEffect].Name} (E to change)\n"
                 + $"speed: {_speed:0.00}x (left / right)\n"
                 + $"brightness: {_brightness * 100:0}% (up / down)";
 
             frameCount = 0;
             frameTimeSum = 0;
-            _updateTimeSum = 0;
-            _loopTimeSum = 0;
-            _sendTimeSum = 0;
-            _updateCount = 0;
             timer.Restart();
         };
-
-        // keep the camera turning so the engine keeps drawing frames
-        //_camera?.StartRotation(headingChangeInSecond: 20);
     }
 
     private void StartAnimation()
@@ -223,12 +204,7 @@ public partial class MainWindow : Window
             if (nextColorUpdate < now) // we fell behind (slow frames), don't try to catch up
                 nextColorUpdate = now + colorUpdateInterval;
 
-            var updateTimer = System.Diagnostics.Stopwatch.StartNew();
             _facade?.UpdateColors(_effects[_currentEffect], effectTime, _brightness);
-            _updateTimeSum += updateTimer.Elapsed.TotalMilliseconds;
-            _loopTimeSum += _facade?.LastColorLoopMs ?? 0;
-            _sendTimeSum += _facade?.LastSendMs ?? 0;
-            _updateCount++;
         };
     }
 
