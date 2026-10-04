@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private TargetPositionCamera? _camera;
     private PointerCameraController? _cameraController;
     private Facade? _facade;
+    private BoxModelNode? _wall;
     private bool isCameraRotating = false;
 
     // all effects, filled in the constructor
@@ -94,22 +95,80 @@ public partial class MainWindow : Window
             pixelsPerFixture = int.Parse(args[2]);
         }
 
+        BuildFacade(fixtureCount, pixelsPerFixture);
+    }
+
+    // creates the facade and the wall behind it. used at startup and again when the size changes in the panel
+    private void BuildFacade(int fixtureCount, int pixelsPerFixture)
+    {
+        var scene = MainSceneView.Scene;
+
         _facade = new Facade(fixtureCount, pixelsPerFixture);
         scene.RootNode.Add(_facade.RootNode);
 
-        // the ripple needs the facade's shape to draw round rings
+        // the ripple and text effects need the facade's shape to draw round rings and unstretched letters
         _rippleEffect.AspectRatio = _facade.AspectRatio;
         _textEffect.AspectRatio = _facade.AspectRatio;
 
         // The building wall behind the fixtures (vertical, facing the camera)
-        var box = new BoxModelNode(
+        _wall = new BoxModelNode(
             centerPosition: new Vector3(0, 0, -30),
             size: new Vector3(_facade.Size.X + 200, _facade.Size.Y + 200, 50),
             material: StandardMaterials.Gray,
             name: "las vegas"
         );
-        scene.RootNode.Add(box);
+        scene.RootNode.Add(_wall);
     }
+
+    // the Apply button / a preset: throws away the old facade and builds a new one with the new size
+    private void RebuildFacade(int fixtureCount, int pixelsPerFixture)
+    {
+        // building a big facade freezes the window for a moment, so first show a message.
+        // then wait 2 screen frames (CompositionTarget.Rendering fires once per frame), so the message is really drawn.
+        // (waiting for "when WPF isn't busy" doesn't work here: with a big animated facade it's never not busy)
+        BuildingMessage.Visibility = Visibility.Visible;
+        int framesWaited = 0;
+        EventHandler? afterFrames = null;
+        afterFrames = (_, _) =>
+        {
+            if (++framesWaited < 2)
+                return;
+            System.Windows.Media.CompositionTarget.Rendering -= afterFrames; // only once
+
+            // forget anything that points at the old fixtures
+            ShowHover(null, new Point());
+            if (_isBoxSelecting)
+                EndBoxMode();
+
+            // remove the old facade and free its memory on the graphics card (hundreds of MB for big facades)
+            _facade?.RootNode.DisposeWithAllChildren(disposeMeshes: true, disposeMaterials: true, runSceneCleanup: true);
+            if (_wall != null)
+            {
+                MainSceneView.Scene.RootNode.Remove(_wall);
+                _wall.Dispose();
+            }
+
+            // the old facade's arrays (positions, colors...) can be hundreds of MB. .NET would free them eventually,
+            // asking for it now gives that memory back before we build the new facade
+            _facade = null;
+            GC.Collect();
+
+            BuildFacade(fixtureCount, pixelsPerFixture);
+
+            // step back far enough to see the whole new facade (same rule as at startup)
+            if (_camera != null)
+                _camera.Distance = GetCameraDistance();
+
+            // the new facade starts with nothing selected or painted
+            UpdateFacadeInfo();
+            UpdateSelectionText();
+            BuildingMessage.Visibility = Visibility.Collapsed;
+        };
+        System.Windows.Media.CompositionTarget.Rendering += afterFrames;
+    }
+
+    // far enough back to see the whole facade
+    private float GetCameraDistance() => Math.Max(1100, _facade!.Size.X * 1.2f);
 
     private void CreateCamera()
     {
@@ -118,7 +177,7 @@ public partial class MainWindow : Window
             TargetPosition = new Vector3(-500, 200, 1000), // center of the fixture row
             Heading = 20, // left/right orbit
             Attitude = -10, // up/down tilt
-            Distance = Math.Max(1100, _facade!.Size.X * 1.2f), // far enough to see the whole grid
+            Distance = GetCameraDistance(), // far enough to see the whole grid
             ShowCameraLight = ShowCameraLightType.Never, // we use our own point light
         };
 
@@ -237,9 +296,8 @@ public partial class MainWindow : Window
         TextScrollButton.Checked += (_, _) => _textEffect.IsScrolling = true;
         ClearButton.Click += (_, _) => ClearSelection();
 
-        // the line under the panel title. N0 = number with thousands separators, e.g. 50,000
-        if (_facade != null)
-            FacadeInfoText.Text = $"{_facade.Fixtures.Count:N0} fixtures · {_facade.PixelCount:N0} pixels";
+        UpdateFacadeInfo();
+        CreateFacadeSettings();
 
         // fill in the value labels once at the start
         SetSpeed(_speed);
@@ -305,6 +363,78 @@ public partial class MainWindow : Window
         ClearButton.IsEnabled = count > 0;
 
         UpdateColorTarget(); // with a selection the color wheel paints fixtures, without one it colors the effect
+    }
+
+    // ---- facade size ----
+
+    // limits for the size boxes, so nobody builds a facade that fills all the memory
+    private const int MaxFixtures = 50_000;
+    private const int MaxPixelsPerFixture = 200;
+    private const long MaxTotalPixels = 10_000_000;
+
+    // the line under the panel title. N0 = number with thousands separators, e.g. 50,000
+    private void UpdateFacadeInfo()
+    {
+        if (_facade != null)
+            FacadeInfoText.Text = $"{_facade.Fixtures.Count:N0} fixtures · {_facade.PixelCount:N0} pixels";
+    }
+
+    private void CreateFacadeSettings()
+    {
+        // start with the size we're showing
+        if (_facade != null)
+        {
+            FixtureCountBox.Text = _facade.Fixtures.Count.ToString();
+            PixelsPerFixtureBox.Text = (_facade.PixelCount / Math.Max(1, _facade.Fixtures.Count)).ToString();
+        }
+
+        // check the numbers every time they change, so the total and the Apply button are always up to date
+        FixtureCountBox.TextChanged += (_, _) => ValidateFacadeSize();
+        PixelsPerFixtureBox.TextChanged += (_, _) => ValidateFacadeSize();
+        ValidateFacadeSize();
+
+        ApplyFacadeButton.Click += (_, _) =>
+        {
+            if (ReadFacadeSize() is (int fixtures, int pixels))
+                RebuildFacade(fixtures, pixels);
+        };
+
+        // presets: one click fills in the numbers and builds right away. Tag holds "fixtures,pixels" (see the XAML)
+        foreach (var button in new[] { Preset800, Preset100K, Preset1M, Preset2M, Preset5M })
+        {
+            button.Click += (_, _) =>
+            {
+                var parts = ((string)button.Tag).Split(',');
+                FixtureCountBox.Text = parts[0];
+                PixelsPerFixtureBox.Text = parts[1];
+                if (ReadFacadeSize() is (int fixtures, int pixels))
+                    RebuildFacade(fixtures, pixels);
+            };
+        }
+    }
+
+    // the two numbers if they're valid, otherwise null
+    private (int Fixtures, int Pixels)? ReadFacadeSize()
+    {
+        if (!int.TryParse(FixtureCountBox.Text, out int fixtures) || !int.TryParse(PixelsPerFixtureBox.Text, out int pixels))
+            return null;
+        if (fixtures < 1 || fixtures > MaxFixtures || pixels < 1 || pixels > MaxPixelsPerFixture)
+            return null;
+        if ((long)fixtures * pixels > MaxTotalPixels)
+            return null;
+        return (fixtures, pixels);
+    }
+
+    // shows the total, or what's wrong, and only enables Apply for a valid size
+    private void ValidateFacadeSize()
+    {
+        var size = ReadFacadeSize();
+        ApplyFacadeButton.IsEnabled = size != null;
+
+        if (size is (int fixtures, int pixels))
+            FacadeTotalText.Text = $"= {(long)fixtures * pixels:N0} pixels";
+        else
+            FacadeTotalText.Text = $"Fixtures 1 - {MaxFixtures:N0}, pixels 1 - {MaxPixelsPerFixture}, max {MaxTotalPixels:N0} in total";
     }
 
     // ---- color wheel ----
@@ -494,6 +624,11 @@ public partial class MainWindow : Window
         {
             if (e.Key is Key.Enter or Key.Escape)
             {
+                // Enter in one of the facade size boxes also builds the new facade
+                bool inSizeBox = Keyboard.FocusedElement == FixtureCountBox || Keyboard.FocusedElement == PixelsPerFixtureBox;
+                if (e.Key == Key.Enter && inSizeBox && ReadFacadeSize() is (int fixtures, int pixels))
+                    RebuildFacade(fixtures, pixels);
+
                 ReleaseTextFocus();
                 e.Handled = true;
             }
