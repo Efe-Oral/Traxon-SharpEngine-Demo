@@ -22,13 +22,14 @@ Left mouse drag rotates the camera, Ctrl + drag moves it, the wheel zooms.
 
 A facade has fixtures, and every fixture has a few pixels. A pixel is one small light with its own color.
 
-Making one scene object per pixel would be far too slow with millions of them. So the pixels are
-drawn with instancing: the engine gets one quad mesh plus a list of positions and colors, and draws
-the whole list in one go. In SharpEngine that is an `InstancedMeshNode`.
+Making one scene object per thing would be far too slow with millions of them. So the fixture
+housings are drawn with instancing: the engine gets one box mesh plus a list of positions, and
+draws the whole list in one go. In SharpEngine that is an `InstancedMeshNode`.
 
-Pixels are flat quads instead of spheres because a quad is only 2 triangles, and from a distance
-a light looks like a flat dot anyway. They are drawn in a solid color with no shading, so they
-look like they glow.
+The pixels started out the same way, as instanced flat quads. They are now a `PixelsNode`, which
+draws one small dot per position and keeps the colors in their own buffer, so changing colors is
+much cheaper (see Optimisations below). Pixels ignore the scene lights and show their exact color,
+so they look like they glow.
 
 ## Real light vs fake light
 
@@ -113,6 +114,39 @@ go faster, but a pixel facade packs its universes full (one RGB pixel is 3 chann
 pixels per universe), so 44 Hz is the realistic number here. Updating the preview's colors faster than ~44 times a second doesn't show
 anything the building would show, so that's the rate I'm going for.
 
+### Optimisations, before and after
+
+Three fixes, from easiest to hardest. Each cell is color update time / FPS.
+
+| Step                         | 2M pixels, Wipe  | 5M pixels, Wipe   | 5M pixels, Rainbow |
+| ---------------------------- | ---------------- | ----------------- | ------------------ |
+| Start (simple version)       | 59 ms / 15 fps   | 200 ms / 5 fps    | 273 ms / 3 fps     |
+| 1. Parallel color loop       | 57 ms / 15 fps   | 185 ms / 5 fps    | 186 ms / 5 fps     |
+| 2. Colors updated at 44 Hz   | 56 ms / 16 fps   | 186 ms / 5 fps    | not measured       |
+| 3. Pixels as a `PixelsNode`  | 14 ms / 37 fps   | 43 ms / 14 fps    | 77 ms / 9 fps      |
+
+**1. Parallel color loop.** The loop now runs on all CPU cores with `Parallel.For`. That's safe
+because every pixel only reads its own position and writes its own color. It helped the heavy
+Rainbow effect a lot, Wipe less, because after that the loop is mostly waiting on memory.
+
+**2. Colors at 44 Hz.** The colors are recalculated at most 44 times a second (the DMX rate above),
+and the frames in between just redraw. It does nothing for the biggest facades yet, because one
+update there takes longer than 1/44 of a second anyway. It does help in the middle: at 500,000
+pixels FPS went from 56 to 96.
+
+**3. Only send the colors.** This was the big one. I looked inside SharpEngine and found that
+`UpdateInstancesData` throws away the GPU buffer and builds a new 400 MB one on every call,
+positions included. SharpEngine also has a `PixelsNode`, made for point clouds, which keeps
+positions and colors in separate buffers. The positions go to the GPU once, and after that only
+the colors are sent (16 bytes per pixel instead of 80). The pixels are now drawn as small dots
+with a fixed size on screen instead of quads. From a distance it looks the same, and dots are
+closer to what a real light point looks like anyway. I went with size 3, which keeps small gaps
+between neighbouring pixels so moving light still reads as separate points.
+
+Result: 2 million pixels now animate at close to the full 44 Hz, and 5 million pixels went from
+5 to about 14 FPS. What's left at 5 million is mostly the color loop itself. I'd look at cheaper
+effect math or doing the effects on the GPU next, but for this demo I stopped here.
+
 ## Progress
 
 **Stage 1 (done):** 5 fixtures, 2 pixels each, nothing moving. The whole facade is 2 scene nodes:
@@ -131,9 +165,10 @@ later. Two effects so far, Wipe and Rainbow.
 
 Keys: `E` next effect, left / right speed, up / down brightness, space camera rotation.
 
+**Optimisations (done):** see the before and after table above.
+
 Next up:
 
-- make the color update fast enough for millions of pixels
 - click a fixture to select it
 - add fixtures at runtime
 

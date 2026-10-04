@@ -14,25 +14,31 @@ public class Facade
     private const float FixtureSpacing = 150;
     private const float RowSpacing = 60;
 
-    private const float PixelHeight = 12;
+    // pixels are drawn as dots with a fixed size on screen (in screen pixels, not cm)
+    // 3 leaves small gaps between neighbouring pixels, so moving light reads as separate points
+    private const float PixelSize = 3;
 
     private readonly List<Fixture> _fixtures = new();
 
-    // one entry per instance: where it is + what color it has
+    // one entry per housing instance: where it is + what color it has
     private WorldColorInstanceData[] _housingInstances = Array.Empty<WorldColorInstanceData>();
-    private WorldColorInstanceData[] _pixelInstances = Array.Empty<WorldColorInstanceData>();
+
+    // pixels keep positions and colors in separate arrays. positions are sent to the graphics card once,
+    // colors are sent again whenever they change
+    private Vector3[] _pixelPositions = Array.Empty<Vector3>();
+    private Color4[] _pixelColors = Array.Empty<Color4>();
 
     // where each pixel sits on the facade, from 0 to 1. x: 0 = left edge, 1 = right edge. y: 0 = bottom, 1 = top
     private Vector2[] _pixelFacadePositions = Array.Empty<Vector2>();
 
     public IReadOnlyList<Fixture> Fixtures => _fixtures;
-    public int PixelCount => _pixelInstances.Length;
+    public int PixelCount => _pixelColors.Length;
 
     // width and height of the whole grid
     public Vector2 Size { get; private set; }
 
     public GroupNode RootNode { get; } = new GroupNode("Facade");
-    private InstancedMeshNode? _pixelsNode;
+    private PixelsNode? _pixelsNode;
 
     public Facade(int fixtureCount, int pixelsPerFixture)
     {
@@ -80,7 +86,8 @@ public class Facade
         int totalPixels = _fixtures.Sum(f => f.PixelCount);
 
         _housingInstances = new WorldColorInstanceData[_fixtures.Count];
-        _pixelInstances = new WorldColorInstanceData[totalPixels];
+        _pixelPositions = new Vector3[totalPixels];
+        _pixelColors = new Color4[totalPixels];
         _pixelFacadePositions = new Vector2[totalPixels];
 
         var housingColor = new Color4(0.12f, 0.12f, 0.13f, 1); //gray color for fxture sockets
@@ -96,9 +103,8 @@ public class Facade
                 housingColor
             );
 
-            // each pixel gets an equal slot and fills 60% of it to leave gaps between pixels
+            // each pixel sits in the middle of an equal slot along the fixture
             float slotWidth = FixtureWidth / fixture.PixelCount;
-            var pixelScale = Matrix4x4.CreateScale(slotWidth * 0.6f, PixelHeight, 1);
 
             for (int p = 0; p < fixture.PixelCount; p++)
             {
@@ -116,10 +122,8 @@ public class Facade
                 // rainbow, so every pixel is a different color
                 float hue = 360f * pixelIndex / totalPixels;
 
-                _pixelInstances[pixelIndex] = new(
-                    pixelScale * Matrix4x4.CreateTranslation(pixelPosition),
-                    Color4.FromHsv(hue, 1, 1, 1)
-                );
+                _pixelPositions[pixelIndex] = pixelPosition;
+                _pixelColors[pixelIndex] = Color4.FromHsv(hue, 1, 1, 1);
 
                 // the facade is centered on 0,0, so shift by half the size, then divide by the size
                 _pixelFacadePositions[pixelIndex] = new Vector2(
@@ -139,24 +143,18 @@ public class Facade
             name: "UnitBoxMesh"
         );
 
-        // flat quad facing the camera (pixels). This quad is drawn for every entry in the pixel list
-        var quadMesh = MeshFactory.CreatePlaneMesh(
-            centerPosition: Vector3.Zero,
-            planeNormal: new Vector3(0, 0, 1),
-            planeHeightDirection: new Vector3(0, 1, 0),
-            width: 1,
-            height: 1,
-            widthSegments: 1,
-            heightSegments: 1,
-            name: "UnitQuadMesh"
-        );
-
         var housingsNode = new InstancedMeshNode(boxMesh, "FixtureHousings");
         housingsNode.SetInstancesData(_housingInstances);
 
-        // solid color = no shading, so the pixels look like they glow
-        _pixelsNode = new InstancedMeshNode(quadMesh, "Pixels") { IsSolidColorMaterial = true };
-        _pixelsNode.SetInstancesData(_pixelInstances);
+        // one dot per position, each with its own color. pixels ignore lights, so they look like they glow
+        _pixelsNode = new PixelsNode(
+            _pixelPositions,
+            BoundingBox.FromPoints(_pixelPositions),
+            pixelColors: _pixelColors,
+            pixelSize: PixelSize,
+            hasTransparentPixels: false,
+            name: "Pixels"
+        );
 
         RootNode.Add(housingsNode);
         RootNode.Add(_pixelsNode);
@@ -173,11 +171,11 @@ public class Facade
 
         // same as a normal for loop, but the pixels are split between all cpu cores.
         // safe because every pixel only reads its own position and writes its own color
-        Parallel.For(0, _pixelInstances.Length, i =>
+        Parallel.For(0, _pixelColors.Length, i =>
         {
             var color = effect.GetColor(_pixelFacadePositions[i], seconds);
 
-            _pixelInstances[i].DiffuseColor = new Color4(
+            _pixelColors[i] = new Color4(
                 color.Red * brightness,
                 color.Green * brightness,
                 color.Blue * brightness,
@@ -188,8 +186,8 @@ public class Facade
         LastColorLoopMs = timer.Elapsed.TotalMilliseconds; //1st we measure the time it takes to calculate colors of each pixel
         timer.Restart();
 
-        // the array changed, send it to the graphics card again
-        _pixelsNode?.UpdateInstancesData(updateBoundingBox: false);
+        // the colors changed, send only the color array to the graphics card again (positions stay there)
+        _pixelsNode?.UpdatePixelColors(hasTransparentColors: false);
 
         LastSendMs = timer.Elapsed.TotalMilliseconds; //2nd we measure the time it takes to send the color array to GPU
     }

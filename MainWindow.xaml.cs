@@ -27,7 +27,7 @@ public partial class MainWindow : Window
     private TargetPositionCamera? _camera;
     private PointerCameraController? _cameraController;
     private Facade? _facade;
-    private bool isCameraRotating = true;
+    private bool isCameraRotating = false;
 
     // E switches to the next one
     private readonly IEffect[] _effects = { new WipeEffect(), new RainbowEffect() };
@@ -68,8 +68,8 @@ public partial class MainWindow : Window
 
         // change these two to benchmark, or pass them when running:
         // e.g.: dotnet run -- 500 6 (500 fixtures with 6 pixels each inside)
-        int fixtureCount = 500;
-        int pixelsPerFixture = 70;
+        int fixtureCount = 1000;
+        int pixelsPerFixture = 50;
 
         var args = Environment.GetCommandLineArgs();
         if (args.Length >= 3)
@@ -95,7 +95,7 @@ public partial class MainWindow : Window
     {
         _camera = new TargetPositionCamera()
         {
-            TargetPosition = new Vector3(0, 0, 0), // center of the fixture row
+            TargetPosition = new Vector3(-500, 200, 1000), // center of the fixture row
             Heading = 20, // left/right orbit
             Attitude = -10, // up/down tilt
             Distance = Math.Max(1100, _facade!.Size.X * 1.2f), // far enough to see the whole grid
@@ -178,6 +178,7 @@ public partial class MainWindow : Window
                 + $"avg color update: {_updateTimeSum / Math.Max(1, _updateCount):0.00} ms\n"
                 + $"  colors loop: {_loopTimeSum / Math.Max(1, _updateCount):0.00} ms\n"
                 + $"  send to GPU: {_sendTimeSum / Math.Max(1, _updateCount):0.00} ms\n"
+                + $"color updates per second: {_updateCount / seconds:0}\n"
                 + $"effect: {_effects[_currentEffect].Name} (E to change)\n"
                 + $"speed: {_speed:0.00}x (left / right)\n"
                 + $"brightness: {_brightness * 100:0}% (up / down)";
@@ -192,7 +193,7 @@ public partial class MainWindow : Window
         };
 
         // keep the camera turning so the engine keeps drawing frames
-        _camera?.StartRotation(headingChangeInSecond: 20);
+        //_camera?.StartRotation(headingChangeInSecond: 20);
     }
 
     private void StartAnimation()
@@ -200,6 +201,10 @@ public partial class MainWindow : Window
         var clock = System.Diagnostics.Stopwatch.StartNew();
         double lastTime = 0;
         float effectTime = 0;
+
+        // real DMX fixtures refresh at about 44 Hz, so the colors don't need to change more often than that
+        const double colorUpdateInterval = 1.0 / 44;
+        double nextColorUpdate = 0;
 
         // runs before every frame, like Update() in Unity
         MainSceneView.SceneView.SceneUpdating += (_, _) =>
@@ -209,6 +214,14 @@ public partial class MainWindow : Window
             double now = clock.Elapsed.TotalSeconds;
             effectTime += (float)(now - lastTime) * _speed;
             lastTime = now;
+
+            // not time for new colors yet, the frame is drawn with the old ones
+            if (now < nextColorUpdate)
+                return;
+
+            nextColorUpdate += colorUpdateInterval;
+            if (nextColorUpdate < now) // we fell behind (slow frames), don't try to catch up
+                nextColorUpdate = now + colorUpdateInterval;
 
             var updateTimer = System.Diagnostics.Stopwatch.StartNew();
             _facade?.UpdateColors(_effects[_currentEffect], effectTime, _brightness);
