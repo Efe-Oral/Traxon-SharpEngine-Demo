@@ -15,6 +15,11 @@
                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10"
                    Foreground="White" FontFamily="Consolas" FontSize="14" />
 
+        <!-- the box drawn while shift + dragging. positioned with Margin, sized with Width / Height -->
+        <Rectangle x:Name="SelectionBox" Visibility="Collapsed" IsHitTestVisible="False"
+                   HorizontalAlignment="Left" VerticalAlignment="Top"
+                   Fill="#405FD3FF" Stroke="#FF5FD3FF" StrokeThickness="1" />
+
         <!-- label that follows the mouse when hovering a fixture. IsHitTestVisible="False" so it never blocks the mouse -->
         <Border x:Name="HoverLabel" Visibility="Collapsed" IsHitTestVisible="False"
                 HorizontalAlignment="Left" VerticalAlignment="Top"

@@ -16,7 +16,10 @@ You need Windows and the .NET 10 SDK.
 dotnet run
 ```
 
-Left mouse drag rotates the camera, holding the mouse wheel and dragging moves it, scrolling zooms.
+Camera: right mouse drag rotates, holding the mouse wheel and dragging moves it, scrolling zooms.
+
+Selecting fixtures: hover to see a fixture's id, click to select one, drag to box select.
+Hold Shift (or Ctrl when clicking) to add to the selection instead of replacing it.
 
 ## How it works
 

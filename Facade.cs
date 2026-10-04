@@ -43,7 +43,7 @@ public class Facade
 
     private static readonly Color4 HousingColor = new Color4(0.12f, 0.12f, 0.13f, 1); // dark gray
     private static readonly Color4 HoverColor = new Color4(1f, 0.95f, 0.2f, 1); // bright yellow
-    private static readonly Color4 SelectedColor = new Color4(0.1f, 0.55f, 1f, 1); // blue
+    private static readonly Color4 SelectedColor = new Color4(1f, 0.95f, 0.2f, 1); // yellow
 
     // ids of the selected fixtures. a HashSet is like a List without duplicates, and checking "is X in it?" is instant
     private readonly HashSet<int> _selectedFixtureIds = new();
@@ -241,13 +241,7 @@ public class Facade
     public void ClickFixture(int? id, bool addToSelection)
     {
         if (!addToSelection)
-        {
-            // copy the ids first, because RefreshHousingColor looks at the set while we empty it
-            var previouslySelected = _selectedFixtureIds.ToArray();
-            _selectedFixtureIds.Clear();
-            foreach (int oldId in previouslySelected)
-                RefreshHousingColor(oldId);
-        }
+            ClearSelectionColors();
 
         if (id != null)
         {
@@ -259,6 +253,47 @@ public class Facade
         }
 
         _housingsNode?.UpdateInstancesData(updateBoundingBox: false);
+    }
+
+    // box select: selects every fixture whose center lands inside the box on screen.
+    // toScreen turns a 3D position into a 2D screen position (the facade doesn't know about the camera, so it gets this from outside).
+    // without addToSelection the old selection is replaced
+    public void SelectInBox(
+        Func<Vector3, Vector2> toScreen,
+        Vector2 boxMin,
+        Vector2 boxMax,
+        bool addToSelection
+    )
+    {
+        if (!addToSelection)
+            ClearSelectionColors();
+
+        foreach (var fixture in _fixtures)
+        {
+            // the center of the fixture's front face
+            var screen = toScreen(fixture.Position + new Vector3(0, 0, FixtureDepth / 2));
+
+            bool inside =
+                screen.X >= boxMin.X
+                && screen.X <= boxMax.X
+                && screen.Y >= boxMin.Y
+                && screen.Y <= boxMax.Y;
+
+            if (inside && _selectedFixtureIds.Add(fixture.Id))
+                RefreshHousingColor(fixture.Id);
+        }
+
+        _housingsNode?.UpdateInstancesData(updateBoundingBox: false);
+    }
+
+    // empties the selection and puts the housings back to their normal color (the caller sends the housings to the GPU)
+    private void ClearSelectionColors()
+    {
+        // copy the ids first, because RefreshHousingColor looks at the set while we empty it
+        var previouslySelected = _selectedFixtureIds.ToArray();
+        _selectedFixtureIds.Clear();
+        foreach (int oldId in previouslySelected)
+            RefreshHousingColor(oldId);
     }
 
     // hover wins over selected, selected wins over normal
