@@ -39,6 +39,18 @@ public class Facade
 
     public GroupNode RootNode { get; } = new GroupNode("Facade");
     private PixelsNode? _pixelsNode;
+    private InstancedMeshNode? _housingsNode;
+
+    private static readonly Color4 HousingColor = new Color4(0.12f, 0.12f, 0.13f, 1); // dark gray
+    private static readonly Color4 HoverColor = new Color4(1f, 0.95f, 0.2f, 1); // bright yellow
+
+    // the grid layout, remembered so we can find which fixture is at a point
+    private int _columns;
+    private int _rows;
+    private float _gridWidth;
+    private float _gridHeight;
+
+    private int? _hoveredFixtureId;
 
     public Facade(int fixtureCount, int pixelsPerFixture)
     {
@@ -56,6 +68,11 @@ public class Facade
         float gridWidth = (columns - 1) * FixtureSpacing;
         float gridHeight = (rows - 1) * RowSpacing;
         Size = new Vector2(gridWidth + FixtureWidth, gridHeight + FixtureHeight);
+
+        _columns = columns;
+        _rows = rows;
+        _gridWidth = gridWidth;
+        _gridHeight = gridHeight;
 
         // one fixture = unique id + position + first pixel's index + how many pixel it has
         // e.g.: fixture 0 owns pixels 0 and 1, fixture 1 ownes pixels 2 and 3...
@@ -90,8 +107,6 @@ public class Facade
         _pixelColors = new Color4[totalPixels];
         _pixelFacadePositions = new Vector2[totalPixels];
 
-        var housingColor = new Color4(0.12f, 0.12f, 0.13f, 1); //gray color for fxture sockets
-
         // meshes are 1x1, so the scale is the real size
         var housingScale = Matrix4x4.CreateScale(FixtureWidth, FixtureHeight, FixtureDepth);
 
@@ -100,7 +115,7 @@ public class Facade
             // scale first, then move
             _housingInstances[fixture.Id] = new WorldColorInstanceData(
                 housingScale * Matrix4x4.CreateTranslation(fixture.Position),
-                housingColor
+                HousingColor
             );
 
             // each pixel sits in the middle of an equal slot along the fixture
@@ -143,8 +158,8 @@ public class Facade
             name: "UnitBoxMesh"
         );
 
-        var housingsNode = new InstancedMeshNode(boxMesh, "FixtureHousings");
-        housingsNode.SetInstancesData(_housingInstances);
+        _housingsNode = new InstancedMeshNode(boxMesh, "FixtureHousings");
+        _housingsNode.SetInstancesData(_housingInstances);
 
         // one dot per position, each with its own color. pixels ignore lights, so they look like they glow
         _pixelsNode = new PixelsNode(
@@ -156,8 +171,62 @@ public class Facade
             name: "Pixels"
         );
 
-        RootNode.Add(housingsNode);
+        RootNode.Add(_housingsNode);
         RootNode.Add(_pixelsNode);
+    }
+
+    // which fixture does this ray (e.g. from the mouse) hit? null if none.
+    // the facade is a flat grid, so we don't need to test every fixture:
+    // find where the ray hits the front of the fixtures, then work out which grid cell that is
+    public int? FindFixtureAt(Ray ray)
+    {
+        // the front faces of all fixtures are on one flat plane, at z = FixtureDepth / 2
+        float frontZ = FixtureDepth / 2;
+        if (ray.Direction.Z == 0)
+            return null; // ray runs parallel to the facade, never hits it
+
+        float distance = (frontZ - ray.Position.Z) / ray.Direction.Z;
+        if (distance < 0)
+            return null; // the facade is behind the camera
+
+        var hit = ray.Position + ray.Direction * distance;
+
+        // nearest column and row (the reverse of how CreateFixtures placed them)
+        int column = (int)MathF.Round((hit.X + _gridWidth / 2) / FixtureSpacing);
+        int row = (int)MathF.Round((_gridHeight / 2 - hit.Y) / RowSpacing);
+
+        if (column < 0 || column >= _columns || row < 0 || row >= _rows)
+            return null;
+
+        int id = row * _columns + column;
+        if (id >= _fixtures.Count)
+            return null; // empty spot in the last row
+
+        // the cell is bigger than the fixture, so check we're really on the housing and not in the gap
+        var fixture = _fixtures[id];
+        if (
+            MathF.Abs(hit.X - fixture.Position.X) > FixtureWidth / 2
+            || MathF.Abs(hit.Y - fixture.Position.Y) > FixtureHeight / 2
+        )
+            return null;
+
+        return id;
+    }
+
+    // highlights the housing of the fixture under the mouse (null = none)
+    public void SetHoveredFixture(int? id)
+    {
+        if (id == _hoveredFixtureId)
+            return; // nothing changed, don't resend the housings
+
+        if (_hoveredFixtureId != null)
+            _housingInstances[_hoveredFixtureId.Value].DiffuseColor = HousingColor;
+
+        if (id != null)
+            _housingInstances[id.Value].DiffuseColor = HoverColor;
+
+        _hoveredFixtureId = id;
+        _housingsNode?.UpdateInstancesData(updateBoundingBox: false);
     }
 
     // called every frame. asks the effect for the color of every pixel, then dims it by the brightness (0 - 1)
@@ -165,17 +234,21 @@ public class Facade
     {
         // same as a normal for loop, but the pixels are split between all cpu cores.
         // safe because every pixel only reads its own position and writes its own color
-        Parallel.For(0, _pixelColors.Length, i =>
-        {
-            var color = effect.GetColor(_pixelFacadePositions[i], seconds);
+        Parallel.For(
+            0,
+            _pixelColors.Length,
+            i =>
+            {
+                var color = effect.GetColor(_pixelFacadePositions[i], seconds);
 
-            _pixelColors[i] = new Color4(
-                color.Red * brightness,
-                color.Green * brightness,
-                color.Blue * brightness,
-                1
-            );
-        });
+                _pixelColors[i] = new Color4(
+                    color.Red * brightness,
+                    color.Green * brightness,
+                    color.Blue * brightness,
+                    1
+                );
+            }
+        );
 
         // the colors changed, send only the color array to the graphics card again (positions stay there)
         _pixelsNode?.UpdatePixelColors(hasTransparentColors: false);

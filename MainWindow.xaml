@@ -14,5 +14,12 @@
         <TextBlock x:Name="StatsText"
                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10"
                    Foreground="White" FontFamily="Consolas" FontSize="14" />
+
+        <!-- label that follows the mouse when hovering a fixture. IsHitTestVisible="False" so it never blocks the mouse -->
+        <Border x:Name="HoverLabel" Visibility="Collapsed" IsHitTestVisible="False"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Background="#CC000000" BorderBrush="#555" BorderThickness="1" Padding="6,3">
+            <TextBlock x:Name="HoverText" Foreground="White" FontFamily="Consolas" FontSize="13" />
+        </Border>
     </Grid>
 </Window>

@@ -44,6 +44,8 @@ public partial class MainWindow : Window
         CreateStatsOverlay();
         StartAnimation();
         KeyDown += OnKeyDown;
+        MainSceneView.MouseMove += OnMouseMove;
+        MainSceneView.MouseLeave += (_, _) => ShowHover(null, new Point());
         Closed += (_, _) => MainSceneView.Dispose();
     }
 
@@ -54,7 +56,7 @@ public partial class MainWindow : Window
         // change these two to benchmark, or pass them when running:
         // e.g.: dotnet run -- 500 6 (500 fixtures with 6 pixels each inside)
         int fixtureCount = 1000;
-        int pixelsPerFixture = 50;
+        int pixelsPerFixture = 100;
 
         var args = Environment.GetCommandLineArgs();
         if (args.Length >= 3)
@@ -236,5 +238,43 @@ public partial class MainWindow : Window
             _brightness = Math.Clamp(_brightness + 0.1f, 0, 1);
         if (e.Key == Key.Down)
             _brightness = Math.Clamp(_brightness - 0.1f, 0, 1);
+    }
+
+    // mouse moved over the 3D view: find the fixture under it
+    private void OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_facade == null)
+            return;
+
+        var mouse = e.GetPosition(MainSceneView);
+
+        // a ray from the camera through the mouse position, into the scene
+        var ray = MainSceneView.SceneView.GetRayFromCamera((float)mouse.X, (float)mouse.Y);
+        int? fixtureId = ray.IsValid ? _facade.FindFixtureAt(ray) : null;
+
+        ShowHover(fixtureId, mouse);
+    }
+
+    // highlights the fixture and shows its label next to the mouse (null hides both)
+    private void ShowHover(int? fixtureId, Point mouse)
+    {
+        _facade?.SetHoveredFixture(fixtureId);
+
+        if (fixtureId == null || _facade == null)
+        {
+            HoverLabel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var fixture = _facade.Fixtures[fixtureId.Value];
+        int lastPixel = fixture.FirstPixelIndex + fixture.PixelCount - 1;
+
+        HoverText.Text =
+            $"Fixture {fixture.Id}\n"
+            + $"{fixture.PixelCount} pixels ({fixture.FirstPixelIndex} - {lastPixel})";
+
+        // a bit to the right and below the mouse, so the cursor doesn't cover it
+        HoverLabel.Margin = new Thickness(mouse.X + 15, mouse.Y + 15, 0, 0);
+        HoverLabel.Visibility = Visibility.Visible;
     }
 }
