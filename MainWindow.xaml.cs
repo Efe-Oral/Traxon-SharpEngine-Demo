@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     // all effects, filled in the constructor
     private readonly IEffect[] _effects;
     private readonly RippleEffect _rippleEffect = new(); // kept separately too, because clicks add rings to it
+    private readonly TextEffect _textEffect = new("HELLO"); // same, the panel changes its text and mode
     private int _currentEffect = 0;
 
     // the effect's own clock (see StartAnimation). a field so a click knows "now" in effect time
@@ -59,7 +60,7 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         // every effect in this array shows up in the panel's effect list automatically
-        _effects = new IEffect[] { new WipeEffect(), new RainbowEffect(), _rippleEffect, new BlackoutEffect() };
+        _effects = new IEffect[] { new WipeEffect(), new RainbowEffect(), _rippleEffect, _textEffect, new BlackoutEffect() };
 
         CreateScene();
         CreateCamera();
@@ -98,6 +99,7 @@ public partial class MainWindow : Window
 
         // the ripple needs the facade's shape to draw round rings
         _rippleEffect.AspectRatio = _facade.AspectRatio;
+        _textEffect.AspectRatio = _facade.AspectRatio;
 
         // The building wall behind the fixtures (vertical, facing the camera)
         var box = new BoxModelNode(
@@ -219,6 +221,12 @@ public partial class MainWindow : Window
         BrightnessSlider.ValueChanged += (_, e) => SetBrightness((float)e.NewValue / 100);
 
         IdentifyButton.Click += (_, _) => StartIdentify();
+
+        // text effect settings: every change of the text redraws the text picture, the switch picks the mode
+        EffectTextBox.Text = "HELLO";
+        EffectTextBox.TextChanged += (_, _) => _textEffect.SetText(EffectTextBox.Text);
+        TextStaticButton.Checked += (_, _) => _textEffect.IsScrolling = false;
+        TextScrollButton.Checked += (_, _) => _textEffect.IsScrolling = true;
         ClearButton.Click += (_, _) => ClearSelection();
 
         // the line under the panel title. N0 = number with thousands separators, e.g. 50,000
@@ -239,6 +247,9 @@ public partial class MainWindow : Window
             return; // the list can briefly have nothing selected
         _currentEffect = index;
         EffectList.SelectedIndex = index;
+
+        // only the Text effect has settings, so its card only shows when it's chosen
+        TextSettings.Visibility = _effects[index] == _textEffect ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void SetSpeed(float speed)
@@ -328,6 +339,17 @@ public partial class MainWindow : Window
     // keyboard shortcuts. they do the same as the panel controls
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
+        // while typing in the text box, letters are text and not shortcuts. Enter or Esc finishes typing
+        if (Keyboard.FocusedElement is System.Windows.Controls.TextBox)
+        {
+            if (e.Key is Key.Enter or Key.Escape)
+            {
+                ReleaseTextFocus();
+                e.Handled = true;
+            }
+            return;
+        }
+
         switch (e.Key)
         {
             case Key.Space:
@@ -360,6 +382,13 @@ public partial class MainWindow : Window
 
         // we used the key, so the focused button / slider / list doesn't also react to it
         e.Handled = true;
+    }
+
+    // takes keyboard focus away from the text box and back to the window, so the shortcuts work again
+    private void ReleaseTextFocus()
+    {
+        if (Keyboard.FocusedElement is System.Windows.Controls.TextBox)
+            Focus();
     }
 
     private void ToggleCameraRotation()
@@ -402,6 +431,7 @@ public partial class MainWindow : Window
     private void OnLeftMouseDown(object sender, MouseButtonEventArgs e)
     {
         _mouseDownPosition = e.GetPosition(MainSceneView);
+        ReleaseTextFocus(); // clicking the facade means you're done typing
 
         // every left press starts a box. if the mouse doesn't move, it turns into a normal click on release
         _isBoxSelecting = true;

@@ -149,6 +149,56 @@
             </Setter>
         </Style>
 
+        <!-- dark text box for typing the text effect's text -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#15161B" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="6,5" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Box" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                            <!-- PART_ContentHost is where WPF puts the actual editable text -->
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- a "segmented" switch: radio buttons drawn as two halves of one box, the checked half lights up -->
+        <Style x:Key="SegmentButton" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Box" Background="{StaticResource LineBrush}" CornerRadius="6" Margin="2,0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="#15161B" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- one row in the effect list: a rounded card, lighter under the mouse, accent bar on the left when chosen -->
         <Style x:Key="EffectItem" TargetType="ListBoxItem">
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -243,6 +293,21 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+
+                    <!-- settings for the Text effect. hidden unless the Text effect is chosen -->
+                    <Border x:Name="TextSettings" Visibility="Collapsed" Background="{StaticResource CardBrush}"
+                            CornerRadius="6" Padding="12" Margin="0,4,0,0">
+                        <StackPanel>
+                            <TextBlock Text="TEXT" Style="{StaticResource SectionHeader}" />
+                            <TextBox x:Name="EffectTextBox" />
+                            <TextBlock Text="Enter or Esc when done typing" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,4,0,10" />
+                            <!-- GroupName makes the two radio buttons belong together: checking one unchecks the other -->
+                            <UniformGrid Columns="2" Margin="-2,0">
+                                <RadioButton x:Name="TextStaticButton" Content="Static" GroupName="TextMode" IsChecked="True" Style="{StaticResource SegmentButton}" />
+                                <RadioButton x:Name="TextScrollButton" Content="Scroll" GroupName="TextMode" Style="{StaticResource SegmentButton}" />
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
 
                     <!-- SPEED. a DockPanel lets the value stick to the right side of the label row -->
                     <DockPanel Margin="0,18,0,0">
