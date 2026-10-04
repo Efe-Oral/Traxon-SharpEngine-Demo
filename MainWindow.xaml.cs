@@ -34,6 +34,13 @@ public partial class MainWindow : Window
     // true while shift + dragging a selection box
     private bool _isBoxSelecting;
 
+    // real time since the app started, shared by the animation and Identify
+    private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
+
+    // identify: when it started (in _clock seconds) and how long it blinks
+    private double _identifyStartTime = double.NegativeInfinity; // never started yet
+    private const double IdentifyDuration = 2;
+
     public MainWindow()
     {
         // Ab4d.SharpEngine Trial License can be used for testing the Ab4d.SharpEngine and is valid until November 30, 2026.
@@ -179,7 +186,7 @@ public partial class MainWindow : Window
                 + $"effect: {_effects[_currentEffect].Name} (E to change)\n"
                 + $"speed: {_speed:0.00}x (left / right)\n"
                 + $"brightness: {_brightness * 100:0}% (up / down)\n"
-                + $"selected: {_facade.SelectedCount} fixtures";
+                + $"selected: {_facade.SelectedCount} fixtures (I to identify, Esc to clear)";
 
             frameCount = 0;
             frameTimeSum = 0;
@@ -189,7 +196,6 @@ public partial class MainWindow : Window
 
     private void StartAnimation()
     {
-        var clock = System.Diagnostics.Stopwatch.StartNew();
         double lastTime = 0;
         float effectTime = 0;
 
@@ -202,7 +208,7 @@ public partial class MainWindow : Window
         {
             // the effect has its own clock. each frame it moves forward by the real time that passed, times the speed.
             // so changing the speed doesn't make the effect jump
-            double now = clock.Elapsed.TotalSeconds;
+            double now = _clock.Elapsed.TotalSeconds;
             effectTime += (float)(now - lastTime) * _speed;
             lastTime = now;
 
@@ -214,8 +220,20 @@ public partial class MainWindow : Window
             if (nextColorUpdate < now) // we fell behind (slow frames), don't try to catch up
                 nextColorUpdate = now + colorUpdateInterval;
 
-            _facade?.UpdateColors(_effects[_currentEffect], effectTime, _brightness);
+            _facade?.UpdateColors(_effects[_currentEffect], effectTime, _brightness, GetIdentifyColor(now));
         };
+    }
+
+    // while identifying, the selected fixtures blink white / off. returns null when not identifying
+    private Color4? GetIdentifyColor(double now)
+    {
+        double sinceStart = now - _identifyStartTime;
+        if (sinceStart < 0 || sinceStart > IdentifyDuration)
+            return null;
+
+        // 4 blinks per second: on for the first half of each blink, off for the second half
+        bool on = sinceStart * 4 % 1 < 0.5;
+        return on ? new Color4(1, 1, 1, 1) : new Color4(0, 0, 0, 1);
     }
 
     // space = start / stop the camera rotation, E = next effect
@@ -246,6 +264,13 @@ public partial class MainWindow : Window
             _brightness = Math.Clamp(_brightness + 0.1f, 0, 1);
         if (e.Key == Key.Down)
             _brightness = Math.Clamp(_brightness - 0.1f, 0, 1);
+
+        // I = identify: the selected fixtures blink so you can find them (like "locate" on a real lighting desk)
+        if (e.Key == Key.I)
+            _identifyStartTime = _clock.Elapsed.TotalSeconds;
+
+        if (e.Key == Key.Escape)
+            _facade?.ClearSelection();
     }
 
     // mouse moved over the 3D view: find the fixture under it
@@ -309,14 +334,15 @@ public partial class MainWindow : Window
             (float)Math.Max(mouse.Y, _mouseDownPosition.Y)
         );
 
-        bool shiftHeld = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+        // ctrl + drag adds to the selection, a plain drag replaces it (same key as ctrl + click)
+        bool ctrlHeld = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
 
         // Point3DTo2D turns a 3D position into a position on screen, the same coordinates as the mouse
         _facade?.SelectInBox(
             position => MainSceneView.SceneView.Point3DTo2D(position, adjustByDpiScale: true),
             boxMin,
             boxMax,
-            addToSelection: shiftHeld
+            addToSelection: ctrlHeld
         );
     }
 
@@ -350,11 +376,9 @@ public partial class MainWindow : Window
         var ray = MainSceneView.SceneView.GetRayFromCamera((float)mouse.X, (float)mouse.Y);
         int? fixtureId = ray.IsValid ? _facade.FindFixtureAt(ray) : null;
 
-        // ctrl or shift + click adds / removes, a plain click replaces the selection
-        bool addToSelection =
-            Keyboard.Modifiers.HasFlag(ModifierKeys.Control)
-            || Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
-        _facade.ClickFixture(fixtureId, addToSelection);
+        // ctrl + click adds / removes, a plain click replaces the selection
+        bool ctrlHeld = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        _facade.ClickFixture(fixtureId, addToSelection: ctrlHeld);
     }
 
     // highlights the fixture and shows its label next to the mouse (null hides both)

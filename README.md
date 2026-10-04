@@ -19,7 +19,8 @@ dotnet run
 Camera: right mouse drag rotates, holding the mouse wheel and dragging moves it, scrolling zooms.
 
 Selecting fixtures: hover to see a fixture's id, click to select one, drag to box select.
-Hold Shift (or Ctrl when clicking) to add to the selection instead of replacing it.
+Hold Ctrl while clicking or dragging to add to the selection instead of replacing it.
+`I` makes the selected fixtures blink for 2 seconds (identify), `Esc` clears the selection.
 
 ## How it works
 

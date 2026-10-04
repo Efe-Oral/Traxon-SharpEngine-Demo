@@ -45,6 +45,15 @@ public class Facade
     private static readonly Color4 HoverColor = new Color4(1f, 0.95f, 0.2f, 1); // bright yellow
     private static readonly Color4 SelectedColor = new Color4(1f, 0.95f, 0.2f, 1); // yellow
 
+    // outlines around hovered / selected fixtures. line thickness is in screen pixels, so it stays visible at any zoom
+    private MultiLineNode? _hoverOutline;
+    private MultiLineNode? _selectionOutline;
+    private const float OutlineThickness = 3;
+
+    // how far the outline sits outside the housing (cm). the hover ring is bigger, so on a selected fixture you see both
+    private const float SelectionOutlinePadding = 4;
+    private const float HoverOutlinePadding = 10;
+
     // ids of the selected fixtures. a HashSet is like a List without duplicates, and checking "is X in it?" is instant
     private readonly HashSet<int> _selectedFixtureIds = new();
     public int SelectedCount => _selectedFixtureIds.Count;
@@ -176,8 +185,26 @@ public class Facade
             name: "Pixels"
         );
 
+        // both outlines start hidden, they get their lines when something is hovered or selected
+        _selectionOutline = new MultiLineNode("SelectionOutline")
+        {
+            IsLineStrip = false, // separate lines, each one has its own 2 positions
+            LineColor = SelectedColor,
+            LineThickness = OutlineThickness,
+            Visibility = SceneNodeVisibility.Hidden,
+        };
+        _hoverOutline = new MultiLineNode("HoverOutline")
+        {
+            IsLineStrip = false, // separate lines, each one has its own 2 positions
+            LineColor = HoverColor,
+            LineThickness = OutlineThickness,
+            Visibility = SceneNodeVisibility.Hidden,
+        };
+
         RootNode.Add(_housingsNode);
         RootNode.Add(_pixelsNode);
+        RootNode.Add(_selectionOutline);
+        RootNode.Add(_hoverOutline);
     }
 
     // which fixture does this ray (e.g. from the mouse) hit? null if none.
@@ -218,22 +245,16 @@ public class Facade
         return id;
     }
 
-    // highlights the housing of the fixture under the mouse (null = none)
+    // shows the outline around the fixture under the mouse (null = none)
     public void SetHoveredFixture(int? id)
     {
         if (id == _hoveredFixtureId)
-            return; // nothing changed, don't resend the housings
+            return; // nothing changed, don't rebuild the outline
 
-        int? previous = _hoveredFixtureId;
         _hoveredFixtureId = id;
 
-        // the old one goes back to its normal (or selected) color, the new one turns yellow
-        if (previous != null)
-            RefreshHousingColor(previous.Value);
-        if (id != null)
-            RefreshHousingColor(id.Value);
-
-        _housingsNode?.UpdateInstancesData(updateBoundingBox: false);
+        var ids = id == null ? Array.Empty<int>() : new[] { id.Value };
+        ShowOutline(_hoverOutline, CreateOutlinePositions(ids, HoverOutlinePadding));
     }
 
     // click: select only this fixture. ctrl + click (addToSelection): add it, or remove it if it was already selected.
@@ -241,18 +262,13 @@ public class Facade
     public void ClickFixture(int? id, bool addToSelection)
     {
         if (!addToSelection)
-            ClearSelectionColors();
+            _selectedFixtureIds.Clear();
 
-        if (id != null)
-        {
-            // Add returns false when the id was already in the set
-            if (!_selectedFixtureIds.Add(id.Value))
-                _selectedFixtureIds.Remove(id.Value);
+        // Add returns false when the id was already in the set, then we remove it instead
+        if (id != null && !_selectedFixtureIds.Add(id.Value))
+            _selectedFixtureIds.Remove(id.Value);
 
-            RefreshHousingColor(id.Value);
-        }
-
-        _housingsNode?.UpdateInstancesData(updateBoundingBox: false);
+        UpdateSelectionOutline();
     }
 
     // box select: selects every fixture whose center lands inside the box on screen.
@@ -266,7 +282,7 @@ public class Facade
     )
     {
         if (!addToSelection)
-            ClearSelectionColors();
+            _selectedFixtureIds.Clear();
 
         foreach (var fixture in _fixtures)
         {
@@ -279,36 +295,68 @@ public class Facade
                 && screen.Y >= boxMin.Y
                 && screen.Y <= boxMax.Y;
 
-            if (inside && _selectedFixtureIds.Add(fixture.Id))
-                RefreshHousingColor(fixture.Id);
+            if (inside)
+                _selectedFixtureIds.Add(fixture.Id);
         }
 
-        _housingsNode?.UpdateInstancesData(updateBoundingBox: false);
+        UpdateSelectionOutline();
     }
 
-    // empties the selection and puts the housings back to their normal color (the caller sends the housings to the GPU)
-    private void ClearSelectionColors()
+    // Esc: nothing selected anymore
+    public void ClearSelection()
     {
-        // copy the ids first, because RefreshHousingColor looks at the set while we empty it
-        var previouslySelected = _selectedFixtureIds.ToArray();
         _selectedFixtureIds.Clear();
-        foreach (int oldId in previouslySelected)
-            RefreshHousingColor(oldId);
+        UpdateSelectionOutline();
     }
 
-    // hover wins over selected, selected wins over normal
-    private void RefreshHousingColor(int id)
+    private void UpdateSelectionOutline() =>
+        ShowOutline(_selectionOutline, CreateOutlinePositions(_selectedFixtureIds, SelectionOutlinePadding));
+
+    // a rectangle (4 lines = 8 positions) around each fixture, a bit bigger than the housing and just in front of it
+    private Vector3[] CreateOutlinePositions(IEnumerable<int> ids, float padding)
     {
-        if (id == _hoveredFixtureId)
-            _housingInstances[id].DiffuseColor = HoverColor;
-        else if (_selectedFixtureIds.Contains(id))
-            _housingInstances[id].DiffuseColor = SelectedColor;
-        else
-            _housingInstances[id].DiffuseColor = HousingColor;
+        var positions = new List<Vector3>();
+        float z = FixtureDepth / 2 + 1;
+
+        foreach (int id in ids)
+        {
+            var center = _fixtures[id].Position;
+            float left = center.X - FixtureWidth / 2 - padding;
+            float right = center.X + FixtureWidth / 2 + padding;
+            float top = center.Y + FixtureHeight / 2 + padding;
+            float bottom = center.Y - FixtureHeight / 2 - padding;
+
+            var topLeft = new Vector3(left, top, z);
+            var topRight = new Vector3(right, top, z);
+            var bottomRight = new Vector3(right, bottom, z);
+            var bottomLeft = new Vector3(left, bottom, z);
+
+            // every line needs its own start and end position
+            positions.AddRange(new[] { topLeft, topRight, topRight, bottomRight, bottomRight, bottomLeft, bottomLeft, topLeft });
+        }
+
+        return positions.ToArray();
+    }
+
+    // gives the line node its new positions, or hides it when there is nothing to outline
+    private static void ShowOutline(MultiLineNode? node, Vector3[] positions)
+    {
+        if (node == null)
+            return;
+
+        if (positions.Length == 0)
+        {
+            node.Visibility = SceneNodeVisibility.Hidden;
+            return;
+        }
+
+        node.Positions = positions; // a new array, so the engine picks it up without UpdatePositions
+        node.Visibility = SceneNodeVisibility.Visible;
     }
 
     // called every frame. asks the effect for the color of every pixel, then dims it by the brightness (0 - 1)
-    public void UpdateColors(IEffect effect, float seconds, float brightness)
+    // selectionColor: when set, the selected fixtures show this color instead of the effect (used by Identify)
+    public void UpdateColors(IEffect effect, float seconds, float brightness, Color4? selectionColor = null)
     {
         // same as a normal for loop, but the pixels are split between all cpu cores.
         // safe because every pixel only reads its own position and writes its own color
@@ -327,6 +375,17 @@ public class Facade
                 );
             }
         );
+
+        // overwrite the pixels of the selected fixtures, after the effect has run
+        if (selectionColor != null)
+        {
+            foreach (int id in _selectedFixtureIds)
+            {
+                var fixture = _fixtures[id];
+                for (int p = 0; p < fixture.PixelCount; p++)
+                    _pixelColors[fixture.FirstPixelIndex + p] = selectionColor.Value;
+            }
+        }
 
         // the colors changed, send only the color array to the graphics card again (positions stay there)
         _pixelsNode?.UpdatePixelColors(hasTransparentColors: false);
