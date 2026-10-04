@@ -211,6 +211,14 @@ public partial class MainWindow : Window
     // connects the panel's controls to the code. each control has an event, same idea as KeyDown
     private void CreateControlPanel()
     {
+        // first, because the effect and selection updates below also update the color section
+        CreateColorWheel();
+        ClearPaintButton.Click += (_, _) =>
+        {
+            _facade?.ClearPaint();
+            UpdateColorTarget();
+        };
+
         // the list shows every effect (by its Name, see DisplayMemberPath in the XAML)
         EffectList.ItemsSource = _effects;
         EffectList.SelectedIndex = _currentEffect;
@@ -250,6 +258,8 @@ public partial class MainWindow : Window
 
         // only the Text effect has settings, so its card only shows when it's chosen
         TextSettings.Visibility = _effects[index] == _textEffect ? Visibility.Visible : Visibility.Collapsed;
+
+        UpdateColorTarget();
     }
 
     private void SetSpeed(float speed)
@@ -293,6 +303,146 @@ public partial class MainWindow : Window
         // the buttons only make sense with a selection, so they fade out without one
         IdentifyButton.IsEnabled = count > 0;
         ClearButton.IsEnabled = count > 0;
+
+        UpdateColorTarget(); // with a selection the color wheel paints fixtures, without one it colors the effect
+    }
+
+    // ---- color wheel ----
+
+    private const int WheelDisplaySize = 128; // the wheel's size on screen (same as in the XAML)
+    private const int WheelBitmapSize = 256; // drawn at twice the size it's shown, so the edge looks smooth
+
+    // draws the wheel once into a bitmap: the angle is the hue (red, yellow, green ...), the distance from the
+    // center is the saturation (white in the middle, full color at the edge)
+    private void CreateColorWheel()
+    {
+        var bitmap = new System.Windows.Media.Imaging.WriteableBitmap(
+            WheelBitmapSize, WheelBitmapSize, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null);
+
+        // one int per pixel, holding blue, green, red and alpha bytes
+        var pixels = new int[WheelBitmapSize * WheelBitmapSize];
+        float radius = WheelBitmapSize / 2f;
+
+        for (int y = 0; y < WheelBitmapSize; y++)
+        {
+            for (int x = 0; x < WheelBitmapSize; x++)
+            {
+                float dx = x + 0.5f - radius;
+                float dy = y + 0.5f - radius;
+                float distance = MathF.Sqrt(dx * dx + dy * dy) / radius;
+                if (distance > 1)
+                    continue; // outside the circle: stays transparent
+
+                var color = Color4.FromHsv(AngleToHue(dx, dy), distance, 1, 1);
+                pixels[y * WheelBitmapSize + x] =
+                    (255 << 24) | ((int)(color.Red * 255) << 16) | ((int)(color.Green * 255) << 8) | (int)(color.Blue * 255);
+            }
+        }
+
+        bitmap.WritePixels(new Int32Rect(0, 0, WheelBitmapSize, WheelBitmapSize), pixels, WheelBitmapSize * 4, 0);
+        ColorWheelImage.Source = bitmap;
+
+        // press and drag on the wheel to pick. CaptureMouse keeps the drag going even outside the wheel
+        ColorWheelImage.MouseLeftButtonDown += (_, e) =>
+        {
+            ColorWheelImage.CaptureMouse();
+            PickColorAt(e.GetPosition(ColorWheelImage));
+        };
+        ColorWheelImage.MouseMove += (_, e) =>
+        {
+            if (ColorWheelImage.IsMouseCaptured)
+                PickColorAt(e.GetPosition(ColorWheelImage));
+        };
+        ColorWheelImage.MouseLeftButtonUp += (_, _) => ColorWheelImage.ReleaseMouseCapture();
+    }
+
+    // angle around the center in degrees (0 - 360), 0 = pointing right, counting counter-clockwise like a math circle.
+    // screen y goes down, so it's flipped
+    private static float AngleToHue(float dx, float dy)
+    {
+        float degrees = MathF.Atan2(-dy, dx) * 180 / MathF.PI;
+        return degrees < 0 ? degrees + 360 : degrees;
+    }
+
+    // the mouse is at this point on the wheel: work out the color and use it
+    private void PickColorAt(Point point)
+    {
+        float radius = (float)ColorWheelImage.ActualWidth / 2;
+        float dx = (float)point.X - radius;
+        float dy = (float)point.Y - radius;
+        float saturation = Math.Min(1, MathF.Sqrt(dx * dx + dy * dy) / radius); // past the edge counts as the edge
+
+        var color = Color4.FromHsv(AngleToHue(dx, dy), saturation, 1, 1);
+        ShowPickedColor(color);
+
+        // with fixtures selected we paint them, otherwise we recolor the effect
+        if (_facade != null && _facade.SelectedCount > 0)
+        {
+            _facade.PaintSelection(color);
+            UpdateColorTarget();
+        }
+        else if (_effects[_currentEffect] is IColorEffect colorEffect)
+        {
+            colorEffect.Color = color;
+        }
+    }
+
+    // moves the marker to where this color sits on the wheel, and fills the swatch and hex code
+    private void ShowPickedColor(Color4 color)
+    {
+        var (hue, saturation) = GetHueAndSaturation(color);
+
+        float radius = WheelDisplaySize / 2f;
+        double angle = hue * Math.PI / 180;
+        System.Windows.Controls.Canvas.SetLeft(ColorWheelMarker, radius + Math.Cos(angle) * saturation * radius - ColorWheelMarker.Width / 2);
+        System.Windows.Controls.Canvas.SetTop(ColorWheelMarker, radius - Math.Sin(angle) * saturation * radius - ColorWheelMarker.Height / 2);
+
+        byte r = (byte)(color.Red * 255), g = (byte)(color.Green * 255), b = (byte)(color.Blue * 255);
+        ColorSwatch.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b));
+        ColorHexText.Text = $"#{r:X2}{g:X2}{b:X2}";
+    }
+
+    // the opposite of FromHsv, for the hue and saturation part (the wheel has no dark colors, so value is ignored)
+    private static (float Hue, float Saturation) GetHueAndSaturation(Color4 color)
+    {
+        float max = Math.Max(color.Red, Math.Max(color.Green, color.Blue));
+        float min = Math.Min(color.Red, Math.Min(color.Green, color.Blue));
+        float delta = max - min;
+        if (delta == 0)
+            return (0, 0); // a gray or white: sits in the center
+
+        float hue;
+        if (max == color.Red)
+            hue = 60 * ((color.Green - color.Blue) / delta % 6);
+        else if (max == color.Green)
+            hue = 60 * ((color.Blue - color.Red) / delta + 2);
+        else
+            hue = 60 * ((color.Red - color.Green) / delta + 4);
+
+        return (hue < 0 ? hue + 360 : hue, delta / max);
+    }
+
+    // the line above the wheel that says what it colors, plus the effect's current color on the wheel
+    private void UpdateColorTarget()
+    {
+        int selected = _facade?.SelectedCount ?? 0;
+        var effect = _effects[_currentEffect];
+
+        if (selected > 0)
+        {
+            ColorTargetText.Text = selected == 1 ? "Painting the selected fixture" : $"Painting the {selected:N0} selected fixtures";
+        }
+        else if (effect is IColorEffect colorEffect)
+        {
+            ColorTargetText.Text = $"Coloring the {effect.Name} effect. Select fixtures to paint them instead";
+            ShowPickedColor(colorEffect.Color);
+        }
+        else
+        {
+            ColorTargetText.Text = $"{effect.Name} has its own colors. Select fixtures to paint them";
+        }
+
+        ClearPaintButton.IsEnabled = (_facade?.PaintedCount ?? 0) > 0;
     }
 
     private void StartAnimation()

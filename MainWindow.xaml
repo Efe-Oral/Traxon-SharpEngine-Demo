@@ -326,6 +326,39 @@
                     <Slider x:Name="BrightnessSlider" Minimum="0" Maximum="100" Value="100"
                             TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,2,0,0" />
 
+                    <!-- COLOR: a color wheel. colors the effect, or the selected fixtures when there are any -->
+                    <TextBlock Text="COLOR" Style="{StaticResource SectionHeader}" Margin="0,24,0,8" />
+                    <Border Background="{StaticResource CardBrush}" CornerRadius="6" Padding="12">
+                        <StackPanel>
+                            <!-- tells you what the wheel is coloring right now -->
+                            <TextBlock x:Name="ColorTargetText" Foreground="{StaticResource MutedBrush}" FontSize="11"
+                                       TextWrapping="Wrap" Margin="0,0,0,10" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- the wheel: a picture drawn in code, with a small ring on top that marks the picked color.
+                                     a Canvas places its children at exact x / y positions -->
+                                <Grid Grid.Column="0" Width="128" Height="128" Cursor="Cross">
+                                    <Image x:Name="ColorWheelImage" />
+                                    <Canvas IsHitTestVisible="False">
+                                        <Ellipse x:Name="ColorWheelMarker" Width="12" Height="12" Stroke="White" StrokeThickness="2" />
+                                    </Canvas>
+                                </Grid>
+
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <Border x:Name="ColorSwatch" Height="32" CornerRadius="6" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" />
+                                    <TextBlock x:Name="ColorHexText" Foreground="{StaticResource TextBrush}" FontFamily="Consolas"
+                                               FontSize="12" HorizontalAlignment="Center" Margin="0,6,0,12" />
+                                    <Button x:Name="ClearPaintButton" Content="Clear painted" FontSize="11" Height="30"
+                                            ToolTip="Remove the colors painted on fixtures" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
                     <!-- SELECTION, in its own card -->
                     <TextBlock Text="SELECTION" Style="{StaticResource SectionHeader}" Margin="0,24,0,8" />
                     <Border Background="{StaticResource CardBrush}" CornerRadius="6" Padding="12">

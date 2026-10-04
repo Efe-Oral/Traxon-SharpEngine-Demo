@@ -4,10 +4,12 @@ using Ab4d.SharpEngine.Common;
 namespace SharpEngine;
 
 // rings of light that start where you click and travel outwards, on a dark facade
-public class RippleEffect : IEffect
+public class RippleEffect : IEffect, IColorEffect
 {
     public string Name => "Ripple";
     public string Description => "Click the facade to send out a ring of light";
+
+    public Color4 Color { get; set; } = new Color4(0.55f, 0.85f, 1, 1); // cool white-blue
 
     // one ring: where it started (0 - 1 on the facade) and when (in effect seconds)
     private record struct Ripple(Vector2 Center, float StartTime);
@@ -57,7 +59,6 @@ public class RippleEffect : IEffect
             brightness = Math.Min(1, brightness + onRing * fade);
         }
 
-        // cool white-blue light
-        return new Color4(brightness * 0.55f, brightness * 0.85f, brightness, 1);
+        return new Color4(Color.Red * brightness, Color.Green * brightness, Color.Blue * brightness, 1);
     }
 }

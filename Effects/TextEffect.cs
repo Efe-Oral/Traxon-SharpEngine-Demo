@@ -10,10 +10,12 @@ namespace SharpEngine;
 // shows text on the facade, standing still or scrolling from right to left.
 // the text is drawn once into a small black and white picture (a "mask"), and every pixel looks up its spot in that picture.
 // that's pixel mapping, the same idea a video would use
-public class TextEffect : IEffect
+public class TextEffect : IEffect, IColorEffect
 {
     public string Name => "Text";
     public string Description => "Your own text, standing still or scrolling";
+
+    public Color4 Color { get; set; } = new Color4(1, 0.95f, 0.85f, 1); // warm white
 
     private const float TextHeight = 0.7f; // part of the facade height the text fills
     private const float ScrollSpeed = 0.5f; // in facade heights per second
@@ -99,7 +101,6 @@ public class TextEffect : IEffect
 
         float covered = mask.Coverage[(int)(v * mask.Height) * mask.Width + (int)(u * mask.Width)];
 
-        // warm white light
-        return new Color4(covered, covered * 0.95f, covered * 0.85f, 1);
+        return new Color4(Color.Red * covered, Color.Green * covered, Color.Blue * covered, 1);
     }
 }

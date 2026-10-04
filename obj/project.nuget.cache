@@ -1,11 +1,15 @@
 {
   "version": 2,
-  "dgSpecHash": "yzxc6as8Dh0=",
+  "dgSpecHash": "THu6bY2HnQw=",
   "success": true,
   "projectFilePath": "D:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\efeor\\.nuget\\packages\\ab4d.sharpengine\\4.1.9689\\ab4d.sharpengine.4.1.9689.nupkg.sha512",
-    "C:\\Users\\efeor\\.nuget\\packages\\ab4d.sharpengine.wpf\\4.1.9689\\ab4d.sharpengine.wpf.4.1.9689.nupkg.sha512"
+    "C:\\Users\\efeor\\.nuget\\packages\\ab4d.sharpengine.wpf\\4.1.9689\\ab4d.sharpengine.wpf.4.1.9689.nupkg.sha512",
+    "C:\\Users\\efeor\\.nuget\\packages\\microsoft.net.illink.tasks\\10.0.11\\microsoft.net.illink.tasks.10.0.11.nupkg.sha512",
+    "C:\\Users\\efeor\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\10.0.11\\microsoft.netcore.app.runtime.win-x64.10.0.11.nupkg.sha512",
+    "C:\\Users\\efeor\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\10.0.11\\microsoft.windowsdesktop.app.runtime.win-x64.10.0.11.nupkg.sha512",
+    "C:\\Users\\efeor\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\10.0.11\\microsoft.aspnetcore.app.runtime.win-x64.10.0.11.nupkg.sha512"
   ],
   "logs": []
 }

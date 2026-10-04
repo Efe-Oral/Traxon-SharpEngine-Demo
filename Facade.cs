@@ -59,6 +59,11 @@ public class Facade
     public int SelectedCount => _selectedFixtureIds.Count;
     public int SelectedPixelCount => _selectedFixtureIds.Sum(id => _fixtures[id].PixelCount);
 
+    // fixtures that were given a fixed color with the color wheel. they show it on top of any effect.
+    // a Dictionary maps a key to a value, here fixture id -> color
+    private readonly Dictionary<int, Color4> _paintedFixtures = new();
+    public int PaintedCount => _paintedFixtures.Count;
+
     // the grid layout, remembered so we can find which fixture is at a point
     private int _columns;
     private int _rows;
@@ -325,6 +330,24 @@ public class Facade
         UpdateSelectionOutline();
     }
 
+    // sets every pixel of one fixture to the same color
+    private void FillFixture(int id, Color4 color)
+    {
+        var fixture = _fixtures[id];
+        for (int p = 0; p < fixture.PixelCount; p++)
+            _pixelColors[fixture.FirstPixelIndex + p] = color;
+    }
+
+    // the color wheel with fixtures selected: they all get this color (and keep it after they're deselected)
+    public void PaintSelection(Color4 color)
+    {
+        foreach (int id in _selectedFixtureIds)
+            _paintedFixtures[id] = color;
+    }
+
+    // removes all painted colors, so every fixture shows the effect again
+    public void ClearPaint() => _paintedFixtures.Clear();
+
     // Esc: nothing selected anymore
     public void ClearSelection()
     {
@@ -399,15 +422,18 @@ public class Facade
             }
         );
 
-        // overwrite the pixels of the selected fixtures, after the effect has run
+        // painted fixtures show their own color on top of the effect (still dimmed by the brightness)
+        foreach (var (id, paint) in _paintedFixtures)
+        {
+            var dimmed = new Color4(paint.Red * brightness, paint.Green * brightness, paint.Blue * brightness, 1);
+            FillFixture(id, dimmed);
+        }
+
+        // identify blinks the selected fixtures on top of everything
         if (selectionColor != null)
         {
             foreach (int id in _selectedFixtureIds)
-            {
-                var fixture = _fixtures[id];
-                for (int p = 0; p < fixture.PixelCount; p++)
-                    _pixelColors[fixture.FirstPixelIndex + p] = selectionColor.Value;
-            }
+                FillFixture(id, selectionColor.Value);
         }
 
         // the colors changed, send only the color array to the graphics card again (positions stay there)
