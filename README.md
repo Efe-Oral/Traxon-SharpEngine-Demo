@@ -22,6 +22,9 @@ Selecting fixtures: hover to see a fixture's id, click to select one, drag to bo
 Hold Ctrl while clicking or dragging to add to the selection instead of replacing it.
 `I` makes the selected fixtures blink for 2 seconds (identify), `Esc` clears the selection.
 
+The panel on the right has the effect list, speed and brightness sliders, and the selection
+buttons. The keyboard shortcuts do the same things.
+
 ## How it works
 
 A facade has fixtures, and every fixture has a few pixels. A pixel is one small light with its own color.

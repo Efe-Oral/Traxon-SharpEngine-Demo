@@ -20,11 +20,11 @@ public partial class MainWindow : Window
     private Facade? _facade;
     private bool isCameraRotating = false;
 
-    // E switches to the next one
-    private readonly IEffect[] _effects = { new WipeEffect(), new RainbowEffect() };
+    // every effect in this array shows up in the panel's effect list automatically
+    private readonly IEffect[] _effects = { new WipeEffect(), new RainbowEffect(), new BlackoutEffect() };
     private int _currentEffect = 0;
 
-    // live controls. left / right = speed, up / down = brightness
+    // live controls, changed from the panel or the keyboard
     private float _speed = 1; // 0 = frozen, 1 = normal, 2 = twice as fast
     private float _brightness = 1; // 0 = off, 1 = full
 
@@ -49,14 +49,19 @@ public partial class MainWindow : Window
             licenseType: "TrialLicense",
             license: "369C-A35F-8320-CEA6-CA5E-F412-C34D-5EFE-1F40-E62B-A961-F5A3-B007-10E5-8452-EFC7-41E3"
         );
+        // the UI is in English, so numbers are written the English way too (1,000 and 1.25) whatever the Windows region is
+        System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+
         InitializeComponent();
 
         CreateScene();
         CreateCamera();
         CreateLight();
         CreateStatsOverlay();
+        CreateControlPanel();
         StartAnimation();
-        KeyDown += OnKeyDown;
+        // Preview = the window sees the key before any button or slider does, so the shortcuts always work
+        PreviewKeyDown += OnKeyDown;
         MainSceneView.MouseMove += OnMouseMove;
         // "Preview" events reach us before the camera controller sees the mouse, so it can't swallow them
         MainSceneView.PreviewMouseLeftButtonDown += OnLeftMouseDown;
@@ -179,19 +184,94 @@ public partial class MainWindow : Window
             if (seconds < 1)
                 return;
 
+            // only performance numbers here, the controls live in the panel on the right
             StatsText.Text =
                 $"{_facade.Fixtures.Count} fixtures, {_facade.PixelCount} pixels\n"
                 + $"avg frame time: {frameTimeSum / frameCount:0.00} ms\n"
-                + $"fps: {frameCount / seconds:0}\n"
-                + $"effect: {_effects[_currentEffect].Name} (E to change)\n"
-                + $"speed: {_speed:0.00}x (left / right)\n"
-                + $"brightness: {_brightness * 100:0}% (up / down)\n"
-                + $"selected: {_facade.SelectedCount} fixtures (I to identify, Esc to clear)";
+                + $"fps: {frameCount / seconds:0}";
 
             frameCount = 0;
             frameTimeSum = 0;
             timer.Restart();
         };
+    }
+
+    // connects the panel's controls to the code. each control has an event, same idea as KeyDown
+    private void CreateControlPanel()
+    {
+        // the list shows every effect (by its Name, see DisplayMemberPath in the XAML)
+        EffectList.ItemsSource = _effects;
+        EffectList.SelectedIndex = _currentEffect;
+        EffectList.SelectionChanged += (_, _) => SetEffect(EffectList.SelectedIndex);
+
+        // e.NewValue is the slider's new position. brightness slider goes 0 - 100, our value 0 - 1
+        SpeedSlider.ValueChanged += (_, e) => SetSpeed((float)e.NewValue);
+        BrightnessSlider.ValueChanged += (_, e) => SetBrightness((float)e.NewValue / 100);
+
+        IdentifyButton.Click += (_, _) => StartIdentify();
+        ClearButton.Click += (_, _) => ClearSelection();
+
+        // the line under the panel title. N0 = number with thousands separators, e.g. 50,000
+        if (_facade != null)
+            FacadeInfoText.Text = $"{_facade.Fixtures.Count:N0} fixtures · {_facade.PixelCount:N0} pixels";
+
+        // fill in the value labels once at the start
+        SetSpeed(_speed);
+        SetBrightness(_brightness);
+        UpdateSelectionText();
+    }
+
+    // the panel and the keyboard both go through these, so the value and the controls never disagree.
+    // setting a slider to the value it already has doesn't fire ValueChanged again, so there's no endless loop
+    private void SetEffect(int index)
+    {
+        if (index < 0)
+            return; // the list can briefly have nothing selected
+        _currentEffect = index;
+        EffectList.SelectedIndex = index;
+    }
+
+    private void SetSpeed(float speed)
+    {
+        _speed = Math.Clamp(speed, 0, 4); // Math.Clamp keeps the value inside min and max
+        SpeedSlider.Value = _speed;
+        SpeedValue.Text = $"{_speed:0.00}x";
+    }
+
+    private void SetBrightness(float brightness)
+    {
+        _brightness = Math.Clamp(brightness, 0, 1);
+        BrightnessSlider.Value = _brightness * 100;
+        BrightnessValue.Text = $"{_brightness * 100:0}%";
+    }
+
+    // identify: the selected fixtures blink so you can find them (like "locate" on a real lighting desk)
+    private void StartIdentify() => _identifyStartTime = _clock.Elapsed.TotalSeconds;
+
+    private void ClearSelection()
+    {
+        _facade?.ClearSelection();
+        UpdateSelectionText();
+    }
+
+    // call after anything that changes the selection
+    private void UpdateSelectionText()
+    {
+        int count = _facade?.SelectedCount ?? 0;
+        SelectionText.Text = count switch
+        {
+            0 => "Nothing selected",
+            1 => "1 fixture",
+            _ => $"{count:N0} fixtures",
+        };
+
+        SelectionDetailText.Text = count == 0
+            ? "Click a fixture or drag a box on the facade"
+            : $"{_facade!.SelectedPixelCount:N0} pixels";
+
+        // the buttons only make sense with a selection, so they fade out without one
+        IdentifyButton.IsEnabled = count > 0;
+        ClearButton.IsEnabled = count > 0;
     }
 
     private void StartAnimation()
@@ -236,41 +316,54 @@ public partial class MainWindow : Window
         return on ? new Color4(1, 1, 1, 1) : new Color4(0, 0, 0, 1);
     }
 
-    // space = start / stop the camera rotation, E = next effect
+    // keyboard shortcuts. they do the same as the panel controls
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Space && _camera != null)
+        switch (e.Key)
         {
-            isCameraRotating = !isCameraRotating;
-
-            if (isCameraRotating)
-                _camera.StartRotation(headingChangeInSecond: 20);
-            else
-                _camera.StopRotation();
+            case Key.Space:
+                ToggleCameraRotation();
+                break;
+            case Key.E:
+                SetEffect((_currentEffect + 1) % _effects.Length); // after the last one, back to the first
+                break;
+            case Key.Right:
+                SetSpeed(_speed + 0.25f);
+                break;
+            case Key.Left:
+                SetSpeed(_speed - 0.25f);
+                break;
+            case Key.Up:
+                SetBrightness(_brightness + 0.1f);
+                break;
+            case Key.Down:
+                SetBrightness(_brightness - 0.1f);
+                break;
+            case Key.I:
+                StartIdentify();
+                break;
+            case Key.Escape:
+                ClearSelection();
+                break;
+            default:
+                return; // not one of ours, let WPF handle it normally
         }
 
-        if (e.Key == Key.E)
-        {
-            // after the last one, go back to the first
-            _currentEffect = (_currentEffect + 1) % _effects.Length;
-        }
+        // we used the key, so the focused button / slider / list doesn't also react to it
+        e.Handled = true;
+    }
 
-        // Math.Clamp keeps the value inside min and max
-        if (e.Key == Key.Right)
-            _speed = Math.Clamp(_speed + 0.25f, 0, 4);
-        if (e.Key == Key.Left)
-            _speed = Math.Clamp(_speed - 0.25f, 0, 4);
-        if (e.Key == Key.Up)
-            _brightness = Math.Clamp(_brightness + 0.1f, 0, 1);
-        if (e.Key == Key.Down)
-            _brightness = Math.Clamp(_brightness - 0.1f, 0, 1);
+    private void ToggleCameraRotation()
+    {
+        if (_camera == null)
+            return;
 
-        // I = identify: the selected fixtures blink so you can find them (like "locate" on a real lighting desk)
-        if (e.Key == Key.I)
-            _identifyStartTime = _clock.Elapsed.TotalSeconds;
+        isCameraRotating = !isCameraRotating;
 
-        if (e.Key == Key.Escape)
-            _facade?.ClearSelection();
+        if (isCameraRotating)
+            _camera.StartRotation(headingChangeInSecond: 20);
+        else
+            _camera.StopRotation();
     }
 
     // mouse moved over the 3D view: find the fixture under it
@@ -344,6 +437,7 @@ public partial class MainWindow : Window
             boxMax,
             addToSelection: ctrlHeld
         );
+        UpdateSelectionText();
     }
 
     // hides the box and stops box mode
@@ -379,6 +473,7 @@ public partial class MainWindow : Window
         // ctrl + click adds / removes, a plain click replaces the selection
         bool ctrlHeld = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
         _facade.ClickFixture(fixtureId, addToSelection: ctrlHeld);
+        UpdateSelectionText();
     }
 
     // highlights the fixture and shows its label next to the mouse (null hides both)

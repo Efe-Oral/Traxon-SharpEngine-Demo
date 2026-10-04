@@ -57,6 +57,7 @@ public class Facade
     // ids of the selected fixtures. a HashSet is like a List without duplicates, and checking "is X in it?" is instant
     private readonly HashSet<int> _selectedFixtureIds = new();
     public int SelectedCount => _selectedFixtureIds.Count;
+    public int SelectedPixelCount => _selectedFixtureIds.Sum(id => _fixtures[id].PixelCount);
 
     // the grid layout, remembered so we can find which fixture is at a point
     private int _columns;

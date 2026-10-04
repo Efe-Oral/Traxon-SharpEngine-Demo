@@ -8,6 +8,7 @@ namespace SharpEngine;
 public interface IEffect
 {
     string Name { get; }
+    string Description { get; } // one short line, shown under the name in the panel
     Color4 GetColor(Vector2 position, float seconds);
 }
 
@@ -15,6 +16,7 @@ public interface IEffect
 public class WipeEffect : IEffect
 {
     public string Name => "Wipe";
+    public string Description => "A warm band sweeping left to right";
 
     public Color4 GetColor(Vector2 position, float seconds)
     {
@@ -32,10 +34,20 @@ public class WipeEffect : IEffect
 public class RainbowEffect : IEffect
 {
     public string Name => "Rainbow";
+    public string Description => "The color wheel sliding across the facade";
 
     public Color4 GetColor(Vector2 position, float seconds)
     {
         float hue = (position.X + seconds * 0.2f) % 1 * 360; // 0 - 360
         return Color4.FromHsv(hue, 1, 1, 1);
     }
+}
+
+// every pixel off. on a lighting desk this is called a "blackout"
+public class BlackoutEffect : IEffect
+{
+    public string Name => "Blackout";
+    public string Description => "All pixels off";
+
+    public Color4 GetColor(Vector2 position, float seconds) => new Color4(0, 0, 0, 1);
 }
