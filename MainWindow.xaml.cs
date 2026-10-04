@@ -28,6 +28,9 @@ public partial class MainWindow : Window
     private float _speed = 1; // 0 = frozen, 1 = normal, 2 = twice as fast
     private float _brightness = 1; // 0 = off, 1 = full
 
+    // where the left button went down, to tell a click apart from a camera drag
+    private Point _mouseDownPosition;
+
     public MainWindow()
     {
         // Ab4d.SharpEngine Trial License can be used for testing the Ab4d.SharpEngine and is valid until November 30, 2026.
@@ -45,6 +48,9 @@ public partial class MainWindow : Window
         StartAnimation();
         KeyDown += OnKeyDown;
         MainSceneView.MouseMove += OnMouseMove;
+        // "Preview" events reach us before the camera controller sees the mouse, so it can't swallow them
+        MainSceneView.PreviewMouseLeftButtonDown += (_, e) => _mouseDownPosition = e.GetPosition(MainSceneView);
+        MainSceneView.PreviewMouseLeftButtonUp += OnLeftMouseUp;
         MainSceneView.MouseLeave += (_, _) => ShowHover(null, new Point());
         Closed += (_, _) => MainSceneView.Dispose();
     }
@@ -169,7 +175,8 @@ public partial class MainWindow : Window
                 + $"fps: {frameCount / seconds:0}\n"
                 + $"effect: {_effects[_currentEffect].Name} (E to change)\n"
                 + $"speed: {_speed:0.00}x (left / right)\n"
-                + $"brightness: {_brightness * 100:0}% (up / down)";
+                + $"brightness: {_brightness * 100:0}% (up / down)\n"
+                + $"selected: {_facade.SelectedCount} fixtures";
 
             frameCount = 0;
             frameTimeSum = 0;
@@ -251,6 +258,23 @@ public partial class MainWindow : Window
         int? fixtureId = ray.IsValid ? _facade.FindFixtureAt(ray) : null;
 
         ShowHover(fixtureId, mouse);
+    }
+
+    // left button released. if the mouse barely moved since it went down, it was a click (not a camera drag)
+    private void OnLeftMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_facade == null)
+            return;
+
+        var mouse = e.GetPosition(MainSceneView);
+        if ((mouse - _mouseDownPosition).Length > 4)
+            return; // moved more than 4 pixels: that was a drag to rotate the camera
+
+        var ray = MainSceneView.SceneView.GetRayFromCamera((float)mouse.X, (float)mouse.Y);
+        int? fixtureId = ray.IsValid ? _facade.FindFixtureAt(ray) : null;
+
+        bool ctrlHeld = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        _facade.ClickFixture(fixtureId, addToSelection: ctrlHeld);
     }
 
     // highlights the fixture and shows its label next to the mouse (null hides both)

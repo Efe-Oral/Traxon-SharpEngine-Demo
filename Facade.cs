@@ -43,6 +43,11 @@ public class Facade
 
     private static readonly Color4 HousingColor = new Color4(0.12f, 0.12f, 0.13f, 1); // dark gray
     private static readonly Color4 HoverColor = new Color4(1f, 0.95f, 0.2f, 1); // bright yellow
+    private static readonly Color4 SelectedColor = new Color4(0.1f, 0.55f, 1f, 1); // blue
+
+    // ids of the selected fixtures. a HashSet is like a List without duplicates, and checking "is X in it?" is instant
+    private readonly HashSet<int> _selectedFixtureIds = new();
+    public int SelectedCount => _selectedFixtureIds.Count;
 
     // the grid layout, remembered so we can find which fixture is at a point
     private int _columns;
@@ -219,14 +224,52 @@ public class Facade
         if (id == _hoveredFixtureId)
             return; // nothing changed, don't resend the housings
 
-        if (_hoveredFixtureId != null)
-            _housingInstances[_hoveredFixtureId.Value].DiffuseColor = HousingColor;
+        int? previous = _hoveredFixtureId;
+        _hoveredFixtureId = id;
+
+        // the old one goes back to its normal (or selected) color, the new one turns yellow
+        if (previous != null)
+            RefreshHousingColor(previous.Value);
+        if (id != null)
+            RefreshHousingColor(id.Value);
+
+        _housingsNode?.UpdateInstancesData(updateBoundingBox: false);
+    }
+
+    // click: select only this fixture. ctrl + click (addToSelection): add it, or remove it if it was already selected.
+    // clicking empty space (id = null) without ctrl clears the selection
+    public void ClickFixture(int? id, bool addToSelection)
+    {
+        if (!addToSelection)
+        {
+            // copy the ids first, because RefreshHousingColor looks at the set while we empty it
+            var previouslySelected = _selectedFixtureIds.ToArray();
+            _selectedFixtureIds.Clear();
+            foreach (int oldId in previouslySelected)
+                RefreshHousingColor(oldId);
+        }
 
         if (id != null)
-            _housingInstances[id.Value].DiffuseColor = HoverColor;
+        {
+            // Add returns false when the id was already in the set
+            if (!_selectedFixtureIds.Add(id.Value))
+                _selectedFixtureIds.Remove(id.Value);
 
-        _hoveredFixtureId = id;
+            RefreshHousingColor(id.Value);
+        }
+
         _housingsNode?.UpdateInstancesData(updateBoundingBox: false);
+    }
+
+    // hover wins over selected, selected wins over normal
+    private void RefreshHousingColor(int id)
+    {
+        if (id == _hoveredFixtureId)
+            _housingInstances[id].DiffuseColor = HoverColor;
+        else if (_selectedFixtureIds.Contains(id))
+            _housingInstances[id].DiffuseColor = SelectedColor;
+        else
+            _housingInstances[id].DiffuseColor = HousingColor;
     }
 
     // called every frame. asks the effect for the color of every pixel, then dims it by the brightness (0 - 1)
