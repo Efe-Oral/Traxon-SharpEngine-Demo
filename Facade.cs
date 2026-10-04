@@ -171,7 +171,9 @@ public class Facade
     {
         var timer = System.Diagnostics.Stopwatch.StartNew();
 
-        for (int i = 0; i < _pixelInstances.Length; i++)
+        // same as a normal for loop, but the pixels are split between all cpu cores.
+        // safe because every pixel only reads its own position and writes its own color
+        Parallel.For(0, _pixelInstances.Length, i =>
         {
             var color = effect.GetColor(_pixelFacadePositions[i], seconds);
 
@@ -181,7 +183,7 @@ public class Facade
                 color.Blue * brightness,
                 1
             );
-        }
+        });
 
         LastColorLoopMs = timer.Elapsed.TotalMilliseconds; //1st we measure the time it takes to calculate colors of each pixel
         timer.Restart();

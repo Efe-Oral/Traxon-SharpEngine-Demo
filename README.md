@@ -47,13 +47,13 @@ This is an assumption on my side, and something I'd like to discuss.
 Measured on my laptop: RTX 2060 6GB, Intel Core i7-10750H 2.60GHz, 144 Hz screen.
 
 
-| Fixtures | Pixels per fixture| Pixels   | Avg frame time | FPS   |
-| -------- | ----------------- | ---------| -------------- |-------|
-| 5        | 2                 | 10       | 2.43 ms        | 144   |
-| 500      | 4                 | 2,000    | 2.43 ms        | 144   |
-| 5,000    | 8                 | 40,000   | 2,49 ms        | 144   |
-| 20,000   | 100               | 2,000,000| 4,69 ms        | 144   |
-| 50,000   | 100               | 5,000,000| 9,65 ms        | 100,93|
+| Fixtures | Pixels per fixture | Pixels    | Avg frame time | FPS    |
+| -------- | ------------------ | --------- | -------------- | ------ |
+| 5        | 2                  | 10        | 2.43 ms        | 144    |
+| 500      | 4                  | 2,000     | 2.43 ms        | 144    |
+| 5,000    | 8                  | 40,000    | 2,49 ms        | 144    |
+| 20,000   | 100                | 2,000,000 | 4,69 ms        | 144    |
+| 50,000   | 100                | 5,000,000 | 9,65 ms        | 100,93 |
 
 
 FPS can't go above 144 because of the screen, so frame time is the number to watch as the
@@ -65,6 +65,7 @@ Every frame each pixel asks the current effect for its color, and the whole pixe
 to the graphics card again. "Color update" is the time that takes. The engine's frame time
 doesn't include it, so I measure it separately.
 
+
 | Fixtures | Pixels    | Effect  | Color update | Avg frame time | FPS |
 | -------- | --------- | ------- | ------------ | -------------- | --- |
 | 5        | 10        | Wipe    | 0.02 ms      | 2.25 ms        | 144 |
@@ -74,6 +75,7 @@ doesn't include it, so I measure it separately.
 | 50,000   | 5,000,000 | Wipe    | 204.6 ms     | 14.74 ms       | 5   |
 | 20,000   | 2,000,000 | Rainbow | 91.4 ms      | 11.58 ms       | 9   |
 | 50,000   | 5,000,000 | Rainbow | 247.9 ms     | 18.64 ms       | 4   |
+
 
 Drawing 5 million pixels is fine (about 100 FPS static), but changing them every frame isn't.
 Up to 40,000 pixels animation is basically free. At millions of pixels the color update takes
@@ -88,6 +90,7 @@ are the color. Next step is finding out which part is slow and fixing that.
 I split the color update in two: the C# loop that works out every pixel's color, and sending the
 array to the graphics card (`UpdateInstancesData`).
 
+
 | Pixels    | Effect  | Colors loop | Send to GPU | Total    |
 | --------- | ------- | ----------- | ----------- | -------- |
 | 40,000    | Wipe    | 0.75 ms     | 1.34 ms     | 2.09 ms  |
@@ -95,6 +98,7 @@ array to the graphics card (`UpdateInstancesData`).
 | 2,000,000 | Rainbow | 48.4 ms     | 32.7 ms     | 81.1 ms  |
 | 5,000,000 | Wipe    | 64.6 ms     | 135.2 ms    | 199.9 ms |
 | 5,000,000 | Rainbow | 131.5 ms    | 141.2 ms    | 272.7 ms |
+
 
 Both parts are slow at millions of pixels, so both need fixing. Sending is the bigger one and
 doesn't depend on the effect, it's just the size of the array. The loop depends on how much math
