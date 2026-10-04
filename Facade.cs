@@ -213,16 +213,8 @@ public class Facade
     // find where the ray hits the front of the fixtures, then work out which grid cell that is
     public int? FindFixtureAt(Ray ray)
     {
-        // the front faces of all fixtures are on one flat plane, at z = FixtureDepth / 2
-        float frontZ = FixtureDepth / 2;
-        if (ray.Direction.Z == 0)
-            return null; // ray runs parallel to the facade, never hits it
-
-        float distance = (frontZ - ray.Position.Z) / ray.Direction.Z;
-        if (distance < 0)
-            return null; // the facade is behind the camera
-
-        var hit = ray.Position + ray.Direction * distance;
+        if (HitFront(ray) is not Vector3 hit)
+            return null;
 
         // nearest column and row (the reverse of how CreateFixtures placed them)
         int column = (int)MathF.Round((hit.X + _gridWidth / 2) / FixtureSpacing);
@@ -245,6 +237,36 @@ public class Facade
 
         return id;
     }
+
+    // where the ray hits the flat front of the fixtures (z = FixtureDepth / 2), or null if it doesn't
+    private static Vector3? HitFront(Ray ray)
+    {
+        float frontZ = FixtureDepth / 2;
+        if (ray.Direction.Z == 0)
+            return null; // ray runs parallel to the facade, never hits it
+
+        float distance = (frontZ - ray.Position.Z) / ray.Direction.Z;
+        if (distance < 0)
+            return null; // the facade is behind the camera
+
+        return ray.Position + ray.Direction * distance;
+    }
+
+    // where the ray hits the facade, from 0 to 1 like the pixels' facade positions. null if it misses the facade
+    public Vector2? GetFacadePosition(Ray ray)
+    {
+        if (HitFront(ray) is not Vector3 hit)
+            return null;
+
+        var position = new Vector2((hit.X + Size.X / 2) / Size.X, (hit.Y + Size.Y / 2) / Size.Y);
+        if (position.X < 0 || position.X > 1 || position.Y < 0 || position.Y > 1)
+            return null;
+
+        return position;
+    }
+
+    // width divided by height. effects need it to draw round shapes, because 0 - 1 across is longer than 0 - 1 up
+    public float AspectRatio => Size.X / Size.Y;
 
     // shows the outline around the fixture under the mouse (null = none)
     public void SetHoveredFixture(int? id)

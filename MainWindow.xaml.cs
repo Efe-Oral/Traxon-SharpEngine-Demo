@@ -20,9 +20,13 @@ public partial class MainWindow : Window
     private Facade? _facade;
     private bool isCameraRotating = false;
 
-    // every effect in this array shows up in the panel's effect list automatically
-    private readonly IEffect[] _effects = { new WipeEffect(), new RainbowEffect(), new BlackoutEffect() };
+    // all effects, filled in the constructor
+    private readonly IEffect[] _effects;
+    private readonly RippleEffect _rippleEffect = new(); // kept separately too, because clicks add rings to it
     private int _currentEffect = 0;
+
+    // the effect's own clock (see StartAnimation). a field so a click knows "now" in effect time
+    private float _effectTime;
 
     // live controls, changed from the panel or the keyboard
     private float _speed = 1; // 0 = frozen, 1 = normal, 2 = twice as fast
@@ -53,6 +57,9 @@ public partial class MainWindow : Window
         System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
 
         InitializeComponent();
+
+        // every effect in this array shows up in the panel's effect list automatically
+        _effects = new IEffect[] { new WipeEffect(), new RainbowEffect(), _rippleEffect, new BlackoutEffect() };
 
         CreateScene();
         CreateCamera();
@@ -88,6 +95,9 @@ public partial class MainWindow : Window
 
         _facade = new Facade(fixtureCount, pixelsPerFixture);
         scene.RootNode.Add(_facade.RootNode);
+
+        // the ripple needs the facade's shape to draw round rings
+        _rippleEffect.AspectRatio = _facade.AspectRatio;
 
         // The building wall behind the fixtures (vertical, facing the camera)
         var box = new BoxModelNode(
@@ -277,7 +287,6 @@ public partial class MainWindow : Window
     private void StartAnimation()
     {
         double lastTime = 0;
-        float effectTime = 0;
 
         // real DMX fixtures refresh at about 44 Hz, so the colors don't need to change more often than that
         const double colorUpdateInterval = 1.0 / 44;
@@ -289,7 +298,7 @@ public partial class MainWindow : Window
             // the effect has its own clock. each frame it moves forward by the real time that passed, times the speed.
             // so changing the speed doesn't make the effect jump
             double now = _clock.Elapsed.TotalSeconds;
-            effectTime += (float)(now - lastTime) * _speed;
+            _effectTime += (float)(now - lastTime) * _speed;
             lastTime = now;
 
             // not time for new colors yet, the frame is drawn with the old ones
@@ -300,7 +309,7 @@ public partial class MainWindow : Window
             if (nextColorUpdate < now) // we fell behind (slow frames), don't try to catch up
                 nextColorUpdate = now + colorUpdateInterval;
 
-            _facade?.UpdateColors(_effects[_currentEffect], effectTime, _brightness, GetIdentifyColor(now));
+            _facade?.UpdateColors(_effects[_currentEffect], _effectTime, _brightness, GetIdentifyColor(now));
         };
     }
 
@@ -466,8 +475,18 @@ public partial class MainWindow : Window
         if (_isBoxSelecting)
             EndBoxMode();
 
-        // barely moved: a normal click on one fixture
+        // barely moved: a click
         var ray = MainSceneView.SceneView.GetRayFromCamera((float)mouse.X, (float)mouse.Y);
+
+        // with the Ripple effect on, a click starts a ring of light there instead of selecting (dragging still box selects)
+        if (_effects[_currentEffect] == _rippleEffect)
+        {
+            if (ray.IsValid && _facade.GetFacadePosition(ray) is Vector2 center)
+                _rippleEffect.AddRipple(center, _effectTime);
+            return;
+        }
+
+        // otherwise: a normal click on one fixture
         int? fixtureId = ray.IsValid ? _facade.FindFixtureAt(ray) : null;
 
         // ctrl + click adds / removes, a plain click replaces the selection

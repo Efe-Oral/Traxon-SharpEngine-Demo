@@ -293,6 +293,7 @@
                             <RowDefinition Height="26" />
                             <RowDefinition Height="26" />
                             <RowDefinition Height="26" />
+                            <RowDefinition Height="26" />
                         </Grid.RowDefinitions>
                         <Grid.Resources>
                             <!-- every description text in this grid gets these settings -->
@@ -327,6 +328,9 @@
 
                         <Border Grid.Row="7" Style="{StaticResource KeyCap}"><TextBlock Text="Space" Style="{StaticResource KeyCapText}" Margin="0" /></Border>
                         <TextBlock Grid.Row="7" Grid.Column="1" Text="Auto rotate camera" />
+
+                        <Border Grid.Row="8" Style="{StaticResource KeyCap}"><TextBlock Text="Click" Style="{StaticResource KeyCapText}" Margin="0" /></Border>
+                        <TextBlock Grid.Row="8" Grid.Column="1" Text="Ripple (Ripple effect)" />
                     </Grid>
                 </StackPanel>
             </ScrollViewer>
