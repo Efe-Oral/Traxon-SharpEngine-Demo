@@ -16,7 +16,7 @@ You need Windows and the .NET 10 SDK.
 dotnet run
 ```
 
-Left mouse drag rotates the camera, Ctrl + drag moves it, the wheel zooms.
+Left mouse drag rotates the camera, holding the mouse wheel and dragging moves it, scrolling zooms.
 
 ## How it works
 

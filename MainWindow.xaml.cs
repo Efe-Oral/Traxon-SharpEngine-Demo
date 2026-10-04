@@ -94,9 +94,7 @@ public partial class MainWindow : Window
         _cameraController = new PointerCameraController(MainSceneView)
         {
             RotateCameraConditions = PointerAndKeyboardConditions.LeftPointerButtonPressed,
-            MoveCameraConditions =
-                PointerAndKeyboardConditions.LeftPointerButtonPressed
-                | PointerAndKeyboardConditions.ControlKey,
+            MoveCameraConditions = PointerAndKeyboardConditions.MiddlePointerButtonPressed, // hold the wheel and drag to move (pan) the camera
             IsPointerWheelZoomEnabled = true,
         };
     }
