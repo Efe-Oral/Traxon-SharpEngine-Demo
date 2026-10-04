@@ -162,9 +162,15 @@ public class Facade
         RootNode.Add(_pixelsNode);
     }
 
+    // how long the last UpdateColors took, split in two parts (for the stats overlay)
+    public double LastColorLoopMs { get; private set; }
+    public double LastSendMs { get; private set; }
+
     // called every frame. asks the effect for the color of every pixel, then dims it by the brightness (0 - 1)
     public void UpdateColors(IEffect effect, float seconds, float brightness)
     {
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+
         for (int i = 0; i < _pixelInstances.Length; i++)
         {
             var color = effect.GetColor(_pixelFacadePositions[i], seconds);
@@ -177,7 +183,12 @@ public class Facade
             );
         }
 
+        LastColorLoopMs = timer.Elapsed.TotalMilliseconds; //1st we measure the time it takes to calculate colors of each pixel
+        timer.Restart();
+
         // the array changed, send it to the graphics card again
         _pixelsNode?.UpdateInstancesData(updateBoundingBox: false);
+
+        LastSendMs = timer.Elapsed.TotalMilliseconds; //2nd we measure the time it takes to send the color array to GPU
     }
 }

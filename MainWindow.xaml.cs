@@ -39,6 +39,8 @@ public partial class MainWindow : Window
 
     // how long our own color update takes. the engine's frame time doesn't include it
     private double _updateTimeSum;
+    private double _loopTimeSum; // part 1: working out the colors
+    private double _sendTimeSum; // part 2: sending the array to the graphics card
     private int _updateCount;
 
     public MainWindow()
@@ -66,8 +68,8 @@ public partial class MainWindow : Window
 
         // change these two to benchmark, or pass them when running:
         // e.g.: dotnet run -- 500 6 (500 fixtures with 6 pixels each inside)
-        int fixtureCount = 600;
-        int pixelsPerFixture = 20;
+        int fixtureCount = 500;
+        int pixelsPerFixture = 70;
 
         var args = Environment.GetCommandLineArgs();
         if (args.Length >= 3)
@@ -174,6 +176,8 @@ public partial class MainWindow : Window
                 + $"avg frame time: {frameTimeSum / frameCount:0.00} ms\n"
                 + $"fps: {frameCount / seconds:0}\n"
                 + $"avg color update: {_updateTimeSum / Math.Max(1, _updateCount):0.00} ms\n"
+                + $"  colors loop: {_loopTimeSum / Math.Max(1, _updateCount):0.00} ms\n"
+                + $"  send to GPU: {_sendTimeSum / Math.Max(1, _updateCount):0.00} ms\n"
                 + $"effect: {_effects[_currentEffect].Name} (E to change)\n"
                 + $"speed: {_speed:0.00}x (left / right)\n"
                 + $"brightness: {_brightness * 100:0}% (up / down)";
@@ -181,6 +185,8 @@ public partial class MainWindow : Window
             frameCount = 0;
             frameTimeSum = 0;
             _updateTimeSum = 0;
+            _loopTimeSum = 0;
+            _sendTimeSum = 0;
             _updateCount = 0;
             timer.Restart();
         };
@@ -207,6 +213,8 @@ public partial class MainWindow : Window
             var updateTimer = System.Diagnostics.Stopwatch.StartNew();
             _facade?.UpdateColors(_effects[_currentEffect], effectTime, _brightness);
             _updateTimeSum += updateTimer.Elapsed.TotalMilliseconds;
+            _loopTimeSum += _facade?.LastColorLoopMs ?? 0;
+            _sendTimeSum += _facade?.LastSendMs ?? 0;
             _updateCount++;
         };
     }

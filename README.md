@@ -83,6 +83,32 @@ This is the simple version on purpose: one C# loop over every pixel, then re-sen
 array, including positions that never change. Each pixel entry is 80 bytes but only 16 of them
 are the color. Next step is finding out which part is slow and fixing that.
 
+### Where the color update time goes
+
+I split the color update in two: the C# loop that works out every pixel's color, and sending the
+array to the graphics card (`UpdateInstancesData`).
+
+| Pixels    | Effect  | Colors loop | Send to GPU | Total    |
+| --------- | ------- | ----------- | ----------- | -------- |
+| 40,000    | Wipe    | 0.75 ms     | 1.34 ms     | 2.09 ms  |
+| 2,000,000 | Wipe    | 26.5 ms     | 32.7 ms     | 59.2 ms  |
+| 2,000,000 | Rainbow | 48.4 ms     | 32.7 ms     | 81.1 ms  |
+| 5,000,000 | Wipe    | 64.6 ms     | 135.2 ms    | 199.9 ms |
+| 5,000,000 | Rainbow | 131.5 ms    | 141.2 ms    | 272.7 ms |
+
+Both parts are slow at millions of pixels, so both need fixing. Sending is the bigger one and
+doesn't depend on the effect, it's just the size of the array. The loop depends on how much math
+the effect does.
+
+### How often colors need to change
+
+Right now the colors are recalculated on every drawn frame, so up to 144 times a second on my
+screen. Before picking a lower rate I looked into DMX, the protocol real fixtures are controlled
+with. A full DMX universe (all 512 channels) refreshes at about 44 Hz. With fewer channels it can
+go faster, but a pixel facade packs its universes full (one RGB pixel is 3 channels, so about 170
+pixels per universe), so 44 Hz is the realistic number here. Updating the preview's colors faster than ~44 times a second doesn't show
+anything the building would show, so that's the rate I'm going for.
+
 ## Progress
 
 **Stage 1 (done):** 5 fixtures, 2 pixels each, nothing moving. The whole facade is 2 scene nodes:
