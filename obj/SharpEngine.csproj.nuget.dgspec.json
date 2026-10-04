@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "d:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj": {}
+    "D:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj": {}
   },
   "projects": {
-    "d:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj": {
+    "D:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "d:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj",
+        "projectUniqueName": "D:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj",
         "projectName": "SharpEngine",
-        "projectPath": "d:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj",
+        "projectPath": "D:\\Cursor Projects\\SharpEngine\\SharpEngine.csproj",
         "packagesPath": "C:\\Users\\efeor\\.nuget\\packages\\",
-        "outputPath": "d:\\Cursor Projects\\SharpEngine\\obj\\",
+        "outputPath": "D:\\Cursor Projects\\SharpEngine\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\efeor\\AppData\\Roaming\\NuGet\\NuGet.Config"
