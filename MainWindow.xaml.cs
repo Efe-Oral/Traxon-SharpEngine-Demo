@@ -19,6 +19,10 @@ public partial class MainWindow : Window
     private PointerCameraController? _cameraController;
     private Facade? _facade;
     private BoxModelNode? _wall;
+
+    // TEMP: Andrej's texture plane prototype. T switches between the dots and the plane
+    private TexturePlanePrototype? _texturePlane;
+    private bool _useTexturePlane;
     private bool isCameraRotating = false;
 
     // all effects, filled in the constructor
@@ -141,6 +145,7 @@ public partial class MainWindow : Window
                 EndBoxMode();
 
             // remove the old facade and free its memory on the graphics card (hundreds of MB for big facades)
+            RemoveTexturePlane(); // TEMP prototype: it belongs to the old facade
             _facade?.RootNode.DisposeWithAllChildren(disposeMeshes: true, disposeMaterials: true, runSceneCleanup: true);
             if (_wall != null)
             {
@@ -154,6 +159,8 @@ public partial class MainWindow : Window
             GC.Collect();
 
             BuildFacade(fixtureCount, pixelsPerFixture);
+            if (_useTexturePlane)
+                AddTexturePlane(); // TEMP prototype: same mode on the new facade
 
             // step back far enough to see the whole new facade (same rule as at startup)
             if (_camera != null)
@@ -259,7 +266,8 @@ public partial class MainWindow : Window
             StatsText.Text =
                 $"{_facade.Fixtures.Count} fixtures, {_facade.PixelCount} pixels\n"
                 + $"avg frame time: {frameTimeSum / frameCount:0.00} ms\n"
-                + $"fps: {frameCount / seconds:0}";
+                + $"fps: {frameCount / seconds:0}\n"
+                + $"renderer: {(_useTexturePlane ? "texture plane" : "dots")} (T to switch)"; // TEMP prototype
 
             frameCount = 0;
             frameTimeSum = 0;
@@ -601,6 +609,10 @@ public partial class MainWindow : Window
                 nextColorUpdate = now + colorUpdateInterval;
 
             _facade?.UpdateColors(_effects[_currentEffect], _effectTime, _brightness, GetIdentifyColor(now));
+
+            // TEMP prototype: turn the new colors into the plane's image
+            if (_texturePlane != null && MainSceneView.Scene.GpuDevice != null)
+                _texturePlane.Update(MainSceneView.Scene.GpuDevice);
         };
     }
 
@@ -658,6 +670,9 @@ public partial class MainWindow : Window
             case Key.I:
                 StartIdentify();
                 break;
+            case Key.T: // TEMP prototype
+                ToggleTexturePlane();
+                break;
             case Key.Escape:
                 ClearSelection();
                 break;
@@ -667,6 +682,37 @@ public partial class MainWindow : Window
 
         // we used the key, so the focused button / slider / list doesn't also react to it
         e.Handled = true;
+    }
+
+    // ---- TEMP: texture plane prototype ----
+
+    private void ToggleTexturePlane()
+    {
+        _useTexturePlane = !_useTexturePlane;
+        if (_useTexturePlane)
+            AddTexturePlane();
+        else
+            RemoveTexturePlane();
+    }
+
+    private void AddTexturePlane()
+    {
+        if (_facade == null)
+            return;
+        _texturePlane = new TexturePlanePrototype(_facade);
+        MainSceneView.Scene.RootNode.Add(_texturePlane.Node);
+        _facade.ShowDots = false;
+    }
+
+    private void RemoveTexturePlane()
+    {
+        if (_texturePlane == null)
+            return;
+        MainSceneView.Scene.RootNode.Remove(_texturePlane.Node);
+        _texturePlane.Dispose();
+        _texturePlane = null;
+        if (_facade != null)
+            _facade.ShowDots = true;
     }
 
     // takes keyboard focus away from the text box and back to the window, so the shortcuts work again
