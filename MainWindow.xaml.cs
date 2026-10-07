@@ -304,6 +304,8 @@ public partial class MainWindow : Window
         ChooseImageButton.Click += (_, _) => ChooseImage();
         ImageFitButton.Checked += (_, _) => _imageEffect.Fit = ImageEffect.FitMode.Fit;
         ImageFillButton.Checked += (_, _) => _imageEffect.Fit = ImageEffect.FitMode.Fill;
+        ImageStaticButton.Checked += (_, _) => _imageEffect.IsScrolling = false;
+        ImageScrollButton.Checked += (_, _) => _imageEffect.IsScrolling = true;
         ClearButton.Click += (_, _) => ClearSelection();
 
         UpdateFacadeInfo();

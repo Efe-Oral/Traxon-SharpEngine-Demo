@@ -34,6 +34,10 @@ public class ImageEffect : IEffect
 
     public string? FileName { get; private set; }
 
+    // scrolling: the picture moves in from the right, out to the left, and repeats (like the text effect)
+    public bool IsScrolling { get; set; }
+    private const float ScrollSpeed = 0.5f; // in facade heights per second
+
     public FitMode Fit
     {
         get => _fitMode;
@@ -121,7 +125,16 @@ public class ImageEffect : IEffect
             return new Color4(0, 0, 0, 1);
 
         // where this light lands in the picture, from 0 to 1. v goes down, like rows in a picture
-        float u = (position.X * _aspectRatio - picture.Left) / picture.ShownWidth;
+        // where the picture's left edge is right now. standing still: centered. scrolling: it starts just past the
+        // right edge of the facade and moves left until it's fully gone, then repeats
+        float left = picture.Left;
+        if (IsScrolling)
+        {
+            float travel = _aspectRatio + picture.ShownWidth;
+            left = _aspectRatio - seconds * ScrollSpeed % travel;
+        }
+
+        float u = (position.X * _aspectRatio - left) / picture.ShownWidth;
         float v = 1 - (position.Y - picture.Bottom) / picture.ShownHeight;
         if (u < 0 || u >= 1 || v < 0 || v >= 1)
             return new Color4(0, 0, 0, 1); // outside the picture (black bars with Fit)

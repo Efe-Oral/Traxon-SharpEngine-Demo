@@ -375,6 +375,11 @@
                                 <RadioButton x:Name="ImageFillButton" Content="Fill" GroupName="ImageFit" Style="{StaticResource SegmentButton}"
                                              ToolTip="Cover the whole facade, crop the edges" />
                             </UniformGrid>
+                            <UniformGrid Columns="2" Margin="-2,6,-2,0">
+                                <RadioButton x:Name="ImageStaticButton" Content="Static" GroupName="ImageMode" IsChecked="True" Style="{StaticResource SegmentButton}" />
+                                <RadioButton x:Name="ImageScrollButton" Content="Scroll" GroupName="ImageMode" Style="{StaticResource SegmentButton}"
+                                             ToolTip="Move the picture across the facade (speed slider sets how fast)" />
+                            </UniformGrid>
                         </StackPanel>
                     </Border>
 
