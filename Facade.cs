@@ -40,6 +40,7 @@ public class Facade
     public Color4[] PixelColors => _pixelColors;
     public float FrontZ => FixtureDepth / 2;
     public static float ColumnSpacing => FixtureSpacing;
+    public static float FixtureWidthCm => FixtureWidth;
     public static float RowSpacingCm => RowSpacing;
 
     // TEMP (texture plane prototype): hides the dots and stops sending their colors, so only the prototype draws the pixels
