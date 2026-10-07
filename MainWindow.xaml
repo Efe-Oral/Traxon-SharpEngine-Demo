@@ -383,6 +383,28 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- settings for the Video effect. hidden unless the Video effect is chosen -->
+                    <Border x:Name="VideoSettings" Visibility="Collapsed" Background="{StaticResource CardBrush}"
+                            CornerRadius="6" Padding="12" Margin="0,4,0,0">
+                        <StackPanel>
+                            <TextBlock Text="VIDEO" Style="{StaticResource SectionHeader}" />
+                            <UniformGrid Columns="2" Margin="-2,0">
+                                <Button x:Name="ChooseVideoButton" Content="Choose video…" Style="{StaticResource PrimaryButton}" Margin="2,0" />
+                                <Button x:Name="PlayPauseButton" Content="Pause" Margin="2,0" IsEnabled="False" />
+                            </UniformGrid>
+                            <TextBlock x:Name="VideoFileText" Text="No video chosen yet" Foreground="{StaticResource MutedBrush}"
+                                       FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,6,0,2" />
+                            <TextBlock Text="720p or 1080p videos work best. The speed slider sets the playback speed."
+                                       Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10" />
+                            <UniformGrid Columns="2" Margin="-2,0">
+                                <RadioButton x:Name="VideoFitButton" Content="Fit" GroupName="VideoFit" IsChecked="True" Style="{StaticResource SegmentButton}"
+                                             ToolTip="Show the whole video" />
+                                <RadioButton x:Name="VideoFillButton" Content="Fill" GroupName="VideoFit" Style="{StaticResource SegmentButton}"
+                                             ToolTip="Cover the whole facade, crop the edges" />
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
+
                     <!-- SPEED. a DockPanel lets the value stick to the right side of the label row -->
                     <DockPanel Margin="0,18,0,0">
                         <TextBlock x:Name="SpeedValue" DockPanel.Dock="Right" Foreground="{StaticResource TextBrush}" FontFamily="Consolas" />

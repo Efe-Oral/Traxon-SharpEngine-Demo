@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly RippleEffect _rippleEffect = new(); // kept separately too, because clicks add rings to it
     private readonly TextEffect _textEffect = new("HELLO"); // same, the panel changes its text and mode
     private readonly ImageEffect _imageEffect = new(); // same, the panel picks the picture and fit mode
+    private readonly VideoEffect _videoEffect = new(); // same, the panel picks the video, play / pause and fit mode
     private int _currentEffect = 0;
 
     // the effect's own clock (see StartAnimation). a field so a click knows "now" in effect time
@@ -63,7 +64,7 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         // every effect in this array shows up in the panel's effect list automatically
-        _effects = new IEffect[] { new WipeEffect(), new RainbowEffect(), _rippleEffect, _textEffect, _imageEffect, new BlackoutEffect() };
+        _effects = new IEffect[] { new WipeEffect(), new RainbowEffect(), _rippleEffect, _textEffect, _imageEffect, _videoEffect, new BlackoutEffect() };
 
         CreateScene();
         CreateCamera();
@@ -78,7 +79,11 @@ public partial class MainWindow : Window
         MainSceneView.PreviewMouseLeftButtonDown += OnLeftMouseDown;
         MainSceneView.PreviewMouseLeftButtonUp += OnLeftMouseUp;
         MainSceneView.MouseLeave += (_, _) => ShowHover(null, new Point());
-        Closed += (_, _) => MainSceneView.Dispose();
+        Closed += (_, _) =>
+        {
+            _videoEffect.Close();
+            MainSceneView.Dispose();
+        };
     }
 
     private void CreateScene()
@@ -114,6 +119,7 @@ public partial class MainWindow : Window
 
         // the image is shrunk to about as many lights as the facade has across and up
         _imageEffect.SetFacade(_facade.AspectRatio, _facade.Columns * pixelsPerFixture, _facade.Rows);
+        _videoEffect.SetFacade(_facade.AspectRatio, _facade.Columns * pixelsPerFixture, _facade.Rows);
 
         // The building wall behind the fixtures (vertical, facing the camera)
         _wall = new BoxModelNode(
@@ -306,6 +312,23 @@ public partial class MainWindow : Window
         ImageFillButton.Checked += (_, _) => _imageEffect.Fit = ImageEffect.FitMode.Fill;
         ImageStaticButton.Checked += (_, _) => _imageEffect.IsScrolling = false;
         ImageScrollButton.Checked += (_, _) => _imageEffect.IsScrolling = true;
+
+        // video effect settings
+        ChooseVideoButton.Click += (_, _) => ChooseVideo();
+        PlayPauseButton.Click += (_, _) =>
+        {
+            _videoEffect.TogglePlay();
+            PlayPauseButton.Content = _videoEffect.IsPlaying ? "Pause" : "Play";
+        };
+        VideoFitButton.Checked += (_, _) => _videoEffect.Fit = PictureEffect.FitMode.Fit;
+        VideoFillButton.Checked += (_, _) => _videoEffect.Fit = PictureEffect.FitMode.Fill;
+        _videoEffect.Failed += (_, e) =>
+        {
+            // a file Windows can't play (unknown format or codec)
+            VideoFileText.Text = "Couldn't play that file";
+            PlayPauseButton.IsEnabled = false;
+            MessageBox.Show(this, e.ErrorException.Message, "Couldn't play the video", MessageBoxButton.OK, MessageBoxImage.Warning);
+        };
         ClearButton.Click += (_, _) => ClearSelection();
 
         UpdateFacadeInfo();
@@ -329,6 +352,10 @@ public partial class MainWindow : Window
         // only the Text effect has settings, so its card only shows when it's chosen
         TextSettings.Visibility = _effects[index] == _textEffect ? Visibility.Visible : Visibility.Collapsed;
         ImageSettings.Visibility = _effects[index] == _imageEffect ? Visibility.Visible : Visibility.Collapsed;
+        VideoSettings.Visibility = _effects[index] == _videoEffect ? Visibility.Visible : Visibility.Collapsed;
+
+        // the video only plays while its effect is chosen
+        _videoEffect.IsActive = _effects[index] == _videoEffect;
 
         UpdateColorTarget();
     }
@@ -338,6 +365,7 @@ public partial class MainWindow : Window
         _speed = Math.Clamp(speed, 0, 4); // Math.Clamp keeps the value inside min and max
         SpeedSlider.Value = _speed;
         SpeedValue.Text = $"{_speed:0.00}x";
+        _videoEffect.Speed = _speed; // for video, the speed slider is the playback speed
     }
 
     private void SetBrightness(float brightness)
@@ -376,6 +404,24 @@ public partial class MainWindow : Window
         ClearButton.IsEnabled = count > 0;
 
         UpdateColorTarget(); // with a selection the color wheel paints fixtures, without one it colors the effect
+    }
+
+    // the normal Windows "open file" window, limited to video files
+    private void ChooseVideo()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Choose a video for the facade",
+            Filter = "Videos|*.mp4;*.wmv;*.avi;*.mov;*.m4v|All files|*.*",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        _videoEffect.Load(dialog.FileName);
+        VideoFileText.Text = _videoEffect.FileName;
+        PlayPauseButton.IsEnabled = true;
+        PlayPauseButton.Content = "Pause";
     }
 
     // the normal Windows "open file" window, limited to picture files
@@ -638,6 +684,10 @@ public partial class MainWindow : Window
             nextColorUpdate += colorUpdateInterval;
             if (nextColorUpdate < now) // we fell behind (slow frames), don't try to catch up
                 nextColorUpdate = now + colorUpdateInterval;
+
+            // the video effect needs its newest frame before the colors are worked out
+            if (_effects[_currentEffect] == _videoEffect)
+                _videoEffect.UpdateFrame();
 
             _facade?.UpdateColors(_effects[_currentEffect], _effectTime, _brightness, GetIdentifyColor(now));
         };
