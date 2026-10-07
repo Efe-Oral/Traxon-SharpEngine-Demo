@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private readonly IEffect[] _effects;
     private readonly RippleEffect _rippleEffect = new(); // kept separately too, because clicks add rings to it
     private readonly TextEffect _textEffect = new("HELLO"); // same, the panel changes its text and mode
+    private readonly ImageEffect _imageEffect = new(); // same, the panel picks the picture and fit mode
     private int _currentEffect = 0;
 
     // the effect's own clock (see StartAnimation). a field so a click knows "now" in effect time
@@ -65,7 +66,7 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         // every effect in this array shows up in the panel's effect list automatically
-        _effects = new IEffect[] { new WipeEffect(), new RainbowEffect(), _rippleEffect, _textEffect, new BlackoutEffect() };
+        _effects = new IEffect[] { new WipeEffect(), new RainbowEffect(), _rippleEffect, _textEffect, _imageEffect, new BlackoutEffect() };
 
         CreateScene();
         CreateCamera();
@@ -113,6 +114,9 @@ public partial class MainWindow : Window
         // the ripple and text effects need the facade's shape to draw round rings and unstretched letters
         _rippleEffect.AspectRatio = _facade.AspectRatio;
         _textEffect.AspectRatio = _facade.AspectRatio;
+
+        // the image is shrunk to about as many lights as the facade has across and up
+        _imageEffect.SetFacade(_facade.AspectRatio, _facade.Columns * pixelsPerFixture, _facade.Rows);
 
         // The building wall behind the fixtures (vertical, facing the camera)
         _wall = new BoxModelNode(
@@ -302,6 +306,11 @@ public partial class MainWindow : Window
         EffectTextBox.TextChanged += (_, _) => _textEffect.SetText(EffectTextBox.Text);
         TextStaticButton.Checked += (_, _) => _textEffect.IsScrolling = false;
         TextScrollButton.Checked += (_, _) => _textEffect.IsScrolling = true;
+
+        // image effect settings
+        ChooseImageButton.Click += (_, _) => ChooseImage();
+        ImageFitButton.Checked += (_, _) => _imageEffect.Fit = ImageEffect.FitMode.Fit;
+        ImageFillButton.Checked += (_, _) => _imageEffect.Fit = ImageEffect.FitMode.Fill;
         ClearButton.Click += (_, _) => ClearSelection();
 
         UpdateFacadeInfo();
@@ -324,6 +333,7 @@ public partial class MainWindow : Window
 
         // only the Text effect has settings, so its card only shows when it's chosen
         TextSettings.Visibility = _effects[index] == _textEffect ? Visibility.Visible : Visibility.Collapsed;
+        ImageSettings.Visibility = _effects[index] == _imageEffect ? Visibility.Visible : Visibility.Collapsed;
 
         UpdateColorTarget();
     }
@@ -371,6 +381,32 @@ public partial class MainWindow : Window
         ClearButton.IsEnabled = count > 0;
 
         UpdateColorTarget(); // with a selection the color wheel paints fixtures, without one it colors the effect
+    }
+
+    // the normal Windows "open file" window, limited to picture files
+    private void ChooseImage()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Choose an image for the facade",
+            Filter = "Images|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.tif;*.tiff|All files|*.*",
+        };
+
+        // ShowDialog returns true when a file was picked (false or null when cancelled)
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            _imageEffect.Load(dialog.FileName);
+            ImageFileText.Text = _imageEffect.FileName;
+        }
+        catch (Exception ex)
+        {
+            // not a picture, or a broken file: tell the user instead of crashing
+            ImageFileText.Text = "Couldn't open that file";
+            MessageBox.Show(this, ex.Message, "Couldn't open the image", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     // ---- facade size ----
