@@ -50,7 +50,9 @@ public class Facade
         {
             _showDots = value;
             if (_pixelsNode != null)
-                _pixelsNode.Visibility = value ? SceneNodeVisibility.Visible : SceneNodeVisibility.Hidden;
+                _pixelsNode.Visibility = value
+                    ? SceneNodeVisibility.Visible
+                    : SceneNodeVisibility.Hidden;
         }
     }
     private bool _showDots = true;
@@ -377,7 +379,10 @@ public class Facade
     }
 
     private void UpdateSelectionOutline() =>
-        ShowOutline(_selectionOutline, CreateOutlinePositions(_selectedFixtureIds, SelectionOutlinePadding));
+        ShowOutline(
+            _selectionOutline,
+            CreateOutlinePositions(_selectedFixtureIds, SelectionOutlinePadding)
+        );
 
     // a rectangle (4 lines = 8 positions) around each fixture, a bit bigger than the housing and just in front of it
     private Vector3[] CreateOutlinePositions(IEnumerable<int> ids, float padding)
@@ -399,7 +404,19 @@ public class Facade
             var bottomLeft = new Vector3(left, bottom, z);
 
             // every line needs its own start and end position
-            positions.AddRange(new[] { topLeft, topRight, topRight, bottomRight, bottomRight, bottomLeft, bottomLeft, topLeft });
+            positions.AddRange(
+                new[]
+                {
+                    topLeft,
+                    topRight,
+                    topRight,
+                    bottomRight,
+                    bottomRight,
+                    bottomLeft,
+                    bottomLeft,
+                    topLeft,
+                }
+            );
         }
 
         return positions.ToArray();
@@ -423,7 +440,12 @@ public class Facade
 
     // called every frame. asks the effect for the color of every pixel, then dims it by the brightness (0 - 1)
     // selectionColor: when set, the selected fixtures show this color instead of the effect (used by Identify)
-    public void UpdateColors(IEffect effect, float seconds, float brightness, Color4? selectionColor = null)
+    public void UpdateColors(
+        IEffect effect,
+        float seconds,
+        float brightness,
+        Color4? selectionColor = null
+    )
     {
         // same as a normal for loop, but the pixels are split between all cpu cores.
         // safe because every pixel only reads its own position and writes its own color
@@ -446,7 +468,12 @@ public class Facade
         // painted fixtures show their own color on top of the effect (still dimmed by the brightness)
         foreach (var (id, paint) in _paintedFixtures)
         {
-            var dimmed = new Color4(paint.Red * brightness, paint.Green * brightness, paint.Blue * brightness, 1);
+            var dimmed = new Color4(
+                paint.Red * brightness,
+                paint.Green * brightness,
+                paint.Blue * brightness,
+                1
+            );
             FillFixture(id, dimmed);
         }
 

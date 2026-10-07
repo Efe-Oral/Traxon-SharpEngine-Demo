@@ -20,9 +20,9 @@ public partial class MainWindow : Window
     private Facade? _facade;
     private BoxModelNode? _wall;
 
-    // TEMP: Andrej's texture plane prototype. T switches between the dots and the plane
-    private TexturePlanePrototype? _texturePlane;
-    private bool _useTexturePlane;
+    // TEMP: Andrej's texture prototype. T cycles: dots -> one plane -> rectangle per fixture -> dots
+    private TexturePrototype? _texturePrototype;
+    private TextureMode? _textureMode; // null = the normal dots
     private bool isCameraRotating = false;
 
     // all effects, filled in the constructor
@@ -145,7 +145,7 @@ public partial class MainWindow : Window
                 EndBoxMode();
 
             // remove the old facade and free its memory on the graphics card (hundreds of MB for big facades)
-            RemoveTexturePlane(); // TEMP prototype: it belongs to the old facade
+            RemoveTexturePrototype(); // TEMP prototype: it belongs to the old facade
             _facade?.RootNode.DisposeWithAllChildren(disposeMeshes: true, disposeMaterials: true, runSceneCleanup: true);
             if (_wall != null)
             {
@@ -159,8 +159,8 @@ public partial class MainWindow : Window
             GC.Collect();
 
             BuildFacade(fixtureCount, pixelsPerFixture);
-            if (_useTexturePlane)
-                AddTexturePlane(); // TEMP prototype: same mode on the new facade
+            if (_textureMode != null)
+                AddTexturePrototype(); // TEMP prototype: same mode on the new facade
 
             // step back far enough to see the whole new facade (same rule as at startup)
             if (_camera != null)
@@ -267,7 +267,7 @@ public partial class MainWindow : Window
                 $"{_facade.Fixtures.Count} fixtures, {_facade.PixelCount} pixels\n"
                 + $"avg frame time: {frameTimeSum / frameCount:0.00} ms\n"
                 + $"fps: {frameCount / seconds:0}\n"
-                + $"renderer: {(_useTexturePlane ? "texture plane" : "dots")} (T to switch)"; // TEMP prototype
+                + $"renderer: {GetRendererName()} (T to switch)"; // TEMP prototype
 
             frameCount = 0;
             frameTimeSum = 0;
@@ -610,9 +610,9 @@ public partial class MainWindow : Window
 
             _facade?.UpdateColors(_effects[_currentEffect], _effectTime, _brightness, GetIdentifyColor(now));
 
-            // TEMP prototype: turn the new colors into the plane's image
-            if (_texturePlane != null && MainSceneView.Scene.GpuDevice != null)
-                _texturePlane.Update(MainSceneView.Scene.GpuDevice);
+            // TEMP prototype: turn the new colors into the picture
+            if (_texturePrototype != null && MainSceneView.Scene.GpuDevice != null)
+                _texturePrototype.Update(MainSceneView.Scene.GpuDevice);
         };
     }
 
@@ -671,7 +671,7 @@ public partial class MainWindow : Window
                 StartIdentify();
                 break;
             case Key.T: // TEMP prototype
-                ToggleTexturePlane();
+                CycleTextureMode();
                 break;
             case Key.Escape:
                 ClearSelection();
@@ -684,33 +684,46 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    // ---- TEMP: texture plane prototype ----
+    // ---- TEMP: texture prototype ----
 
-    private void ToggleTexturePlane()
+    // T: dots -> one plane -> rectangle per fixture -> dots
+    private void CycleTextureMode()
     {
-        _useTexturePlane = !_useTexturePlane;
-        if (_useTexturePlane)
-            AddTexturePlane();
-        else
-            RemoveTexturePlane();
+        _textureMode = _textureMode switch
+        {
+            null => TextureMode.OnePlane,
+            TextureMode.OnePlane => TextureMode.RectanglePerFixture,
+            _ => null,
+        };
+
+        RemoveTexturePrototype();
+        if (_textureMode != null)
+            AddTexturePrototype();
     }
 
-    private void AddTexturePlane()
+    private string GetRendererName() => _textureMode switch
     {
-        if (_facade == null)
+        TextureMode.OnePlane => "texture, one plane",
+        TextureMode.RectanglePerFixture => "texture, rectangle per fixture",
+        _ => "dots",
+    };
+
+    private void AddTexturePrototype()
+    {
+        if (_facade == null || _textureMode == null)
             return;
-        _texturePlane = new TexturePlanePrototype(_facade);
-        MainSceneView.Scene.RootNode.Add(_texturePlane.Node);
+        _texturePrototype = new TexturePrototype(_facade, _textureMode.Value);
+        MainSceneView.Scene.RootNode.Add(_texturePrototype.Node);
         _facade.ShowDots = false;
     }
 
-    private void RemoveTexturePlane()
+    private void RemoveTexturePrototype()
     {
-        if (_texturePlane == null)
+        if (_texturePrototype == null)
             return;
-        MainSceneView.Scene.RootNode.Remove(_texturePlane.Node);
-        _texturePlane.Dispose();
-        _texturePlane = null;
+        MainSceneView.Scene.RootNode.Remove(_texturePrototype.Node);
+        _texturePrototype.Dispose();
+        _texturePrototype = null;
         if (_facade != null)
             _facade.ShowDots = true;
     }
