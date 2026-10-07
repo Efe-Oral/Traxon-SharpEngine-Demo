@@ -34,29 +34,9 @@ public class Facade
     public IReadOnlyList<Fixture> Fixtures => _fixtures;
     public int PixelCount => _pixelColors.Length;
 
-    // TEMP (texture plane prototype): read access to the grid and the pixel colors, so the prototype can turn them into an image
+    // how many fixtures across and up the grid has (the image effect uses it to size the picture)
     public int Columns => _columns;
     public int Rows => _rows;
-    public Color4[] PixelColors => _pixelColors;
-    public float FrontZ => FixtureDepth / 2;
-    public static float ColumnSpacing => FixtureSpacing;
-    public static float FixtureWidthCm => FixtureWidth;
-    public static float RowSpacingCm => RowSpacing;
-
-    // TEMP (texture plane prototype): hides the dots and stops sending their colors, so only the prototype draws the pixels
-    public bool ShowDots
-    {
-        get => _showDots;
-        set
-        {
-            _showDots = value;
-            if (_pixelsNode != null)
-                _pixelsNode.Visibility = value
-                    ? SceneNodeVisibility.Visible
-                    : SceneNodeVisibility.Hidden;
-        }
-    }
-    private bool _showDots = true;
 
     // width and height of the whole grid
     public Vector2 Size { get; private set; }
@@ -486,7 +466,6 @@ public class Facade
         }
 
         // the colors changed, send only the color array to the graphics card again (positions stay there)
-        if (_showDots)
-            _pixelsNode?.UpdatePixelColors(hasTransparentColors: false);
+        _pixelsNode?.UpdatePixelColors(hasTransparentColors: false);
     }
 }
