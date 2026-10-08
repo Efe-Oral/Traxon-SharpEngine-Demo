@@ -281,6 +281,14 @@ public partial class MainWindow : Window
     // connects the panel's controls to the code. each control has an event, same idea as KeyDown
     private void CreateControlPanel()
     {
+        // the effect list and the text boxes have their own built-in scrolling, which catches the mouse wheel
+        // even when they have nothing to scroll. "Preview" sees the wheel first, so the whole panel always scrolls
+        PanelScrollViewer.PreviewMouseWheel += (_, e) =>
+        {
+            PanelScrollViewer.ScrollToVerticalOffset(PanelScrollViewer.VerticalOffset - e.Delta / 3.0);
+            e.Handled = true;
+        };
+
         // first, because the effect and selection updates below also update the color section
         CreateColorWheel();
         ClearPaintButton.Click += (_, _) =>

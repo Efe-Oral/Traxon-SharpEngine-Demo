@@ -280,7 +280,7 @@
 
         <!-- column 1: the control panel. ScrollViewer adds a scroll bar if the window gets too short -->
         <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1,0,0,0">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ScrollViewer x:Name="PanelScrollViewer" VerticalScrollBarVisibility="Auto">
                 <!-- a StackPanel puts its children under each other, top to bottom -->
                 <StackPanel Margin="18,16">
 

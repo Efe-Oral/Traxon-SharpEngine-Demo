@@ -1,181 +1,133 @@
 # Facade Lighting Demo
 
-A small WPF app that draws the light fixtures of a building facade with
-[Ab4d.SharpEngine](https://www.ab4d.com/SharpEngine.aspx).
+A WPF app that shows a building facade full of light fixtures, built with
+[Ab4d.SharpEngine](https://www.ab4d.com/SharpEngine.aspx). Every fixture has its own pixels, and
+every pixel can have its own color. It goes up to 50,000 fixtures and 5 million pixels, with live
+effects, images and video on top.
 
-The real-world target is a facade with 20,000 to 50,000 fixtures and around 5 million pixels.
-I'm building towards that in small steps and writing down what I learn here.
+![Rainbow effect on a 1 million pixel facade](docs/screenshot-rainbow.png)
 
-![5 fixtures with 2 pixels each](docs/stage1.png)
+Videos:
+- [3 minute walkthrough](https://drive.google.com/file/d/1CqjlN0QWM9jB80rAJCF-iwrR6mlf81wQ/view?usp=sharing)
+- [Image and video on the facade](https://drive.google.com/file/d/14RaOHoLWfuCHuoGHAPur6RlOgw0KXbTQ/view?usp=sharing)
 
-## Run it
+## Try it
 
-You need Windows and the .NET 10 SDK.
+Download `FacadeLightingDemo.exe` from the [latest release](https://github.com/Efe-Oral/Traxon-SharpEngine-Demo/releases/latest)
+and double-click it. Nothing to install.
 
-```
-dotnet run
-```
+You need Windows 10/11 and a graphics card with Vulkan support (most cards from the last few years).
+Windows will probably say "Windows protected your PC" because the file isn't signed. Click
+"More info" and then "Run anyway".
 
-Camera: right mouse drag rotates, holding the mouse wheel and dragging moves it, scrolling zooms.
+It uses a SharpEngine trial license, so it works until November 30, 2026.
 
-Selecting fixtures: hover to see a fixture's id, click to select one, drag to box select.
-Hold Ctrl while clicking or dragging to add to the selection instead of replacing it.
-`I` makes the selected fixtures blink for 2 seconds (identify), `Esc` clears the selection.
+If you have the .NET 10 SDK you can also run it from the code: `dotnet run -c Release`.
 
-The panel on the right has the effect list, speed and brightness sliders, and the selection
-buttons. The keyboard shortcuts do the same things.
+## What you can do
+
+- **Change the facade size** with the presets in the panel (800, 100K, 1M, 2M or 5M pixels), or type
+  your own number of fixtures and pixels per fixture.
+- **Pick an effect:** Wipe, Rainbow, Ripple (click the facade to send out rings), Text (type your
+  own, static or scrolling), Image, Video and Blackout.
+- **Show an image or a video** on the facade. Fit or fill, and images can scroll too. 720p or 1080p
+  videos work best.
+- **Change speed, brightness and color** while it runs. The color wheel recolors the effect, or
+  paints the selected fixtures if you have any.
+- **Select fixtures:** hover to see a fixture's number, click to select, drag a box to select a
+  group. **Identify** makes the selected fixtures blink, like "locate" on a lighting desk.
+
+![Ripple effect](docs/screenshot-ripple.png)
+
+## Controls
+
+| Input | What it does |
+| --- | --- |
+| Click / drag | Select fixtures (box) |
+| Ctrl + click / drag | Add to the selection |
+| Right drag | Rotate the camera |
+| Hold wheel + drag | Move the camera |
+| Scroll | Zoom |
+| `E` | Next effect |
+| ← → / ↑ ↓ | Speed / brightness |
+| `I` / `Esc` | Identify / clear the selection |
+| Space | Auto rotate the camera |
+
+Everything is also in the panel on the right.
 
 ## How it works
 
-A facade has fixtures, and every fixture has a few pixels. A pixel is one small light with its own color.
+A facade is a list of fixtures, and every fixture owns a few pixels. All the pixel colors live in
+one big list.
 
-Making one scene object per thing would be far too slow with millions of them. So the fixture
-housings are drawn with instancing: the engine gets one box mesh plus a list of positions, and
-draws the whole list in one go. In SharpEngine that is an `InstancedMeshNode`.
+Making a separate 3D object for every pixel would be way too slow with millions of them. So the
+fixture housings are drawn with instancing (one box shape, drawn thousands of times in one go), and
+the pixels are one `PixelsNode`, which draws a small dot for every pixel.
 
-The pixels started out the same way, as instanced flat quads. They are now a `PixelsNode`, which
-draws one small dot per position and keeps the colors in their own buffer, so changing colors is
-much cheaper (see Optimisations below). Pixels ignore the scene lights and show their exact color,
-so they look like they glow.
+The effects all work the same way. Each one only answers: "what color is the pixel at this spot on
+the facade, at this time?" That's why the same effect works on any facade size. Images and video
+use the same idea: every pixel takes the color of the picture at its spot.
 
-## Real light vs fake light
+## Some decisions along the way
 
-The pixels don't actually light anything up. They are colored quads, and the wall next to a red
-pixel doesn't turn red.
+**Real light vs fake light.** The pixels don't actually light up the wall around them. No engine
+can calculate millions of real light sources in real time, and for a preview I don't think it's
+needed: if I control the color of every pixel, I'm already showing what the facade will look like.
 
-I thought about making them real lights, but no engine can calculate millions of light sources in
-real time. And for a preview it isn't needed: if I control the color of every pixel, I'm already
-showing what the facade will look like. If it needs to feel more like light, a glow around the
-pixels can be faked cheaply later.
+**Updating colors 44 times a second.** Before picking a rate I looked into DMX, which real fixtures
+are controlled with. A full DMX universe (512 channels) refreshes at about 44 Hz. It can go faster
+with fewer channels, but a pixel facade fills its universes (an RGB pixel is 3 channels, so about
+170 pixels per universe). The real lights never change faster than that, so the preview doesn't
+need to either.
 
-This is an assumption on my side, and something I'd like to discuss.
+**Dots, quads or one big texture.** The pixels started as small flat squares (quads), then became
+dots to make color updates much cheaper. I asked the SharpEngine developer about it and he suggested
+drawing everything as one big texture instead. I tried two versions of that. They made the graphics
+card's job about 3 times lighter, but the overall FPS stayed about the same, because most of the
+time goes into working out the colors, not drawing them. They also didn't look as good: one version
+turned the facade into a flat TV screen and the other looked dim from a distance. So I stayed with
+dots.
+
+**Video with the built-in Windows player.** Video uses the video player that comes with WPF, so the
+app stays one small .exe with nothing extra. It plays the video in the background and I grab its
+current frame up to 30 times a second. That's quick for 720p videos (about 6 ms per frame) but much
+slower for 4K (about 25 ms), which is why lower resolutions are recommended. A facade has far fewer
+lights than a 4K video has pixels anyway.
 
 ## Performance
 
-Measured on my laptop: RTX 2060 6GB, Intel Core i7-10750H 2.60GHz, 144 Hz screen.
+Measured on my laptop: RTX 2060 6GB, Intel Core i7-10750H, 144 Hz screen.
 
+Just drawing the facade (no animation) is easy, even at 5 million pixels:
 
-| Fixtures | Pixels per fixture | Pixels    | Avg frame time | FPS    |
-| -------- | ------------------ | --------- | -------------- | ------ |
-| 5        | 2                  | 10        | 2.43 ms        | 144    |
-| 500      | 4                  | 2,000     | 2.43 ms        | 144    |
-| 5,000    | 8                  | 40,000    | 2,49 ms        | 144    |
-| 20,000   | 100                | 2,000,000 | 4,69 ms        | 144    |
-| 50,000   | 100                | 5,000,000 | 9,65 ms        | 100,93 |
+| Pixels | Frame time | FPS |
+| --- | --- | --- |
+| 2,000 | 2.4 ms | 144 |
+| 40,000 | 2.5 ms | 144 |
+| 2,000,000 | 4.7 ms | 144 |
+| 5,000,000 | 9.7 ms | 101 |
 
+FPS can't go above 144 because of the screen.
 
-FPS can't go above 144 because of the screen, so frame time is the number to watch as the
-fixture count grows.
+Changing every pixel's color all the time is the hard part. The first simple version dropped to
+5 FPS at 5 million pixels. I measured where the time went and fixed it in three steps:
 
-### With animated colors
+1. Work out the colors on all CPU cores at once.
+2. Only update colors 44 times a second (the DMX rate above).
+3. Only send the colors to the graphics card, not the positions (by switching to `PixelsNode`).
 
-Every frame each pixel asks the current effect for its color, and the whole pixel array is sent
-to the graphics card again. "Color update" is the time that takes. The engine's frame time
-doesn't include it, so I measure it separately.
+| | 2M pixels, animated | 5M pixels, animated |
+| --- | --- | --- |
+| Simple version | 15 fps | 5 fps |
+| After the 3 fixes | 37 fps | 14 fps |
 
+Up to about 2 million pixels it now animates smoothly. At 5 million it's usable but not smooth.
+Video at 1 million pixels runs at about 30 FPS.
 
-| Fixtures | Pixels    | Effect  | Color update | Avg frame time | FPS |
-| -------- | --------- | ------- | ------------ | -------------- | --- |
-| 5        | 10        | Wipe    | 0.02 ms      | 2.25 ms        | 144 |
-| 500      | 2,000     | Wipe    | 0.08 ms      | 2.52 ms        | 140 |
-| 5,000    | 40,000    | Wipe    | 2.02 ms      | 1.11 ms        | 144 |
-| 20,000   | 2,000,000 | Wipe    | 60.2 ms      | 7.48 ms        | 14  |
-| 50,000   | 5,000,000 | Wipe    | 204.6 ms     | 14.74 ms       | 5   |
-| 20,000   | 2,000,000 | Rainbow | 91.4 ms      | 11.58 ms       | 9   |
-| 50,000   | 5,000,000 | Rainbow | 247.9 ms     | 18.64 ms       | 4   |
+## What I'd do next
 
-
-Drawing 5 million pixels is fine (about 100 FPS static), but changing them every frame isn't.
-Up to 40,000 pixels animation is basically free. At millions of pixels the color update takes
-far longer than the drawing itself, and FPS drops to single digits.
-
-This is the simple version on purpose: one C# loop over every pixel, then re-sending the whole
-array, including positions that never change. Each pixel entry is 80 bytes but only 16 of them
-are the color. Next step is finding out which part is slow and fixing that.
-
-### Where the color update time goes
-
-I split the color update in two: the C# loop that works out every pixel's color, and sending the
-array to the graphics card (`UpdateInstancesData`).
-
-
-| Pixels    | Effect  | Colors loop | Send to GPU | Total    |
-| --------- | ------- | ----------- | ----------- | -------- |
-| 40,000    | Wipe    | 0.75 ms     | 1.34 ms     | 2.09 ms  |
-| 2,000,000 | Wipe    | 26.5 ms     | 32.7 ms     | 59.2 ms  |
-| 2,000,000 | Rainbow | 48.4 ms     | 32.7 ms     | 81.1 ms  |
-| 5,000,000 | Wipe    | 64.6 ms     | 135.2 ms    | 199.9 ms |
-| 5,000,000 | Rainbow | 131.5 ms    | 141.2 ms    | 272.7 ms |
-
-
-Both parts are slow at millions of pixels, so both need fixing. Sending is the bigger one and
-doesn't depend on the effect, it's just the size of the array. The loop depends on how much math
-the effect does.
-
-### How often colors need to change
-
-Right now the colors are recalculated on every drawn frame, so up to 144 times a second on my
-screen. Before picking a lower rate I looked into DMX, the protocol real fixtures are controlled
-with. A full DMX universe (all 512 channels) refreshes at about 44 Hz. With fewer channels it can
-go faster, but a pixel facade packs its universes full (one RGB pixel is 3 channels, so about 170
-pixels per universe), so 44 Hz is the realistic number here. Updating the preview's colors faster than ~44 times a second doesn't show
-anything the building would show, so that's the rate I'm going for.
-
-### Optimisations, before and after
-
-Three fixes, from easiest to hardest. Each cell is color update time / FPS.
-
-| Step                         | 2M pixels, Wipe  | 5M pixels, Wipe   | 5M pixels, Rainbow |
-| ---------------------------- | ---------------- | ----------------- | ------------------ |
-| Start (simple version)       | 59 ms / 15 fps   | 200 ms / 5 fps    | 273 ms / 3 fps     |
-| 1. Parallel color loop       | 57 ms / 15 fps   | 185 ms / 5 fps    | 186 ms / 5 fps     |
-| 2. Colors updated at 44 Hz   | 56 ms / 16 fps   | 186 ms / 5 fps    | not measured       |
-| 3. Pixels as a `PixelsNode`  | 14 ms / 37 fps   | 43 ms / 14 fps    | 77 ms / 9 fps      |
-
-**1. Parallel color loop.** The loop now runs on all CPU cores with `Parallel.For`. That's safe
-because every pixel only reads its own position and writes its own color. It helped the heavy
-Rainbow effect a lot, Wipe less, because after that the loop is mostly waiting on memory.
-
-**2. Colors at 44 Hz.** The colors are recalculated at most 44 times a second (the DMX rate above),
-and the frames in between just redraw. It does nothing for the biggest facades yet, because one
-update there takes longer than 1/44 of a second anyway. It does help in the middle: at 500,000
-pixels FPS went from 56 to 96.
-
-**3. Only send the colors.** This was the big one. I looked inside SharpEngine and found that
-`UpdateInstancesData` throws away the GPU buffer and builds a new 400 MB one on every call,
-positions included. SharpEngine also has a `PixelsNode`, made for point clouds, which keeps
-positions and colors in separate buffers. The positions go to the GPU once, and after that only
-the colors are sent (16 bytes per pixel instead of 80). The pixels are now drawn as small dots
-with a fixed size on screen instead of quads. From a distance it looks the same, and dots are
-closer to what a real light point looks like anyway. I went with size 3, which keeps small gaps
-between neighbouring pixels so moving light still reads as separate points.
-
-Result: 2 million pixels now animate at close to the full 44 Hz, and 5 million pixels went from
-5 to about 14 FPS. What's left at 5 million is mostly the color loop itself. I'd look at cheaper
-effect math or doing the effects on the GPU next, but for this demo I stopped here.
-
-## Progress
-
-**Stage 1 (done):** 5 fixtures, 2 pixels each, nothing moving. The whole facade is 2 scene nodes:
-one for the fixture housings and one for the pixels.
-
-**Stats overlay (done):** fixture count, frame time and FPS in the top left corner. Added before
-scaling up, so I can see what each change costs.
-
-**Scaling (done):** fixtures are laid out in a grid, and the counts can be passed on the command
-line: `dotnet run -c Release -- 50000 100` (fixtures, pixels per fixture).
-
-**Effects (done):** pixel colors come from an effect. An effect only answers "what color is the
-pixel at this spot on the facade, at this time?", where the spot goes from 0 to 1 across the
-facade. That way the same effect works on any facade size, and video can plug in the same way
-later. Two effects so far, Wipe and Rainbow.
-
-Keys: `E` next effect, left / right speed, up / down brightness, space camera rotation.
-
-**Optimisations (done):** see the before and after table above.
-
-Next up:
-
-- click a fixture to select it
-- add fixtures at runtime
-
+- **Faster color updates for 5 million pixels.** Work out the effects on the graphics card itself
+  instead of the CPU. The SharpEngine developer is also adding faster ways to update colors.
+- **2D tile fixtures.** Right now every fixture is a horizontal bar, so the facade has lots of pixels
+  across but few rows. Square tiles with a grid of pixels would make images and video much sharper.
+- **Adding fixtures while it runs,** instead of only picking a facade size.
